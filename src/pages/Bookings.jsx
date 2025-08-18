@@ -57,7 +57,9 @@ const Bookings = () => {
     try {
       const response = await axios.get("http://194.164.148.244:4062/api/staff/allbookings");
       if (response.data?.bookings) {
-        setBookings(response.data.bookings);
+        // Reverse order (newest first)
+        const reversed = (response.data.bookings || []).reverse();
+        setBookings(reversed);
       }
     } catch (error) {
       console.error("Error fetching bookings:", error);
@@ -340,7 +342,7 @@ const Bookings = () => {
   };
 
   return (
-    <div className="container mt-4">
+    <div className="container-fluid mt-4">
       <ToastContainer position="top-right" autoClose={2000} />
       <div className="d-flex justify-content-start allign-items-center">
         <h2 className="mb-4">Bookings Management</h2>

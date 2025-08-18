@@ -123,8 +123,11 @@ const Staff = () => {
       const res = await fetch('http://194.164.148.244:4062/api/admin/getallstaffs');
       if (!res.ok) throw new Error('Failed to fetch staff');
       const data = await res.json();
-      setStaffList(data.staff || []);
-      setFilteredStaff(data.staff || []);
+      // Reverse order (newest first)
+      const reversed = (data.staff || []).reverse();
+
+      setStaffList(reversed);
+      setFilteredStaff(reversed);
     } catch (err) {
       setError(err.message);
       toast.error(err.message);

@@ -36,8 +36,12 @@ const Users = () => {
         const res = await fetch('http://194.164.148.244:4062/api/admin/allusers');
         if (!res.ok) throw new Error('Failed to fetch users');
         const data = await res.json();
-        setUsers(data.users || []);
-        setFilteredUsers(data.users || []);
+
+        // Reverse order (newest first)
+        const reversed = (data.users || []).reverse();
+
+        setUsers(reversed);
+        setFilteredUsers(reversed);
       } catch (err) {
         setError(err.message);
         toast.error(err.message);
@@ -47,6 +51,7 @@ const Users = () => {
     };
     fetchUsers();
   }, []);
+
 
   useEffect(() => {
     if (searchTerm === '') {

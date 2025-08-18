@@ -60,8 +60,12 @@ const Vehicles = () => {
         if (!res.ok) throw new Error('Failed to fetch vehicles');
         const data = await res.json();
         const carList = data.cars || [];
-        setVehicles(carList);
-        setFilteredVehicles(carList);
+
+        // Reverse order (newest first)
+        const reversed = (data.cars || []).reverse();
+
+        setVehicles(reversed);
+        setFilteredVehicles(reversed);
       } catch (err) {
         setError(err.message);
         toast.error(err.message);
@@ -318,6 +322,7 @@ const Vehicles = () => {
         toast.success('Car added successfully!');
       }
       setShowModal(false);
+      // console.log(res)
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -557,7 +562,7 @@ const Vehicles = () => {
                   <th>Ext. Price/Day</th>
                   <th>Status</th>
                   <th>Running Status</th>
-                  <th>Availability</th>
+                  {/* <th>Availability</th> */}
                   <th>Fuel</th>
                   <th>Seats</th>
                   <th>Type</th>
@@ -606,11 +611,11 @@ const Vehicles = () => {
                           {vehicle.runningStatus || 'Available'}
                         </span>
                       </td>
-                      <td>
+                      {/* <td>
                         <span className={`badge bg-${vehicle.availabilityStatus !== false ? 'success' : 'danger'}`}>
                           {vehicle.availabilityStatus !== false ? 'Available' : 'Unavailable'}
                         </span>
-                      </td>
+                      </td> */}
                       <td>{vehicle.fuel}</td>
                       <td>{vehicle.seats}</td>
                       <td>{vehicle.type}</td>
@@ -788,6 +793,7 @@ const Vehicles = () => {
                 >
                   <option value="active">Active</option>
                   <option value="onHold">On Hold</option>
+                  <option value="underRepair">Under Repair</option>
                 </Form.Select>
               </Form.Group>
 
@@ -803,7 +809,7 @@ const Vehicles = () => {
                 </Form.Select>
               </Form.Group>
 
-              <Form.Group className="mb-3 col-md-4">
+              {/* <Form.Group className="mb-3 col-md-4">
                 <Form.Label>Availability Status</Form.Label>
                 <Form.Select
                   name="availabilityStatus"
@@ -816,7 +822,7 @@ const Vehicles = () => {
                   <option value="true">Available</option>
                   <option value="false">Not Available</option>
                 </Form.Select>
-              </Form.Group>
+              </Form.Group> */}
 
               <Form.Group className="mb-3 col-12">
                 <Form.Label>Description</Form.Label>
@@ -943,12 +949,12 @@ const Vehicles = () => {
                     {viewVehicle.runningStatus || 'Available'}
                   </span>
                 </div>
-                <div className="mb-3">
+                {/* <div className="mb-3">
                   <strong>Availability:</strong>
                   <span className={`badge bg-${viewVehicle.availabilityStatus !== false ? 'success' : 'danger'} ms-2`}>
                     {viewVehicle.availabilityStatus !== false ? 'Available' : 'Unavailable'}
                   </span>
-                </div>
+                </div> */}
               </div>
               <div className="col-12">
                 <div className="mb-3">
