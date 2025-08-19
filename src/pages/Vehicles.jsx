@@ -903,7 +903,7 @@ const Vehicles = () => {
                   <strong>Branch:</strong> {viewVehicle.branch?.name || '-'}
                 </div>
                 <div className="mb-3">
-                  <strong>Branch Coordinates:</strong> {viewVehicle.branch?.location?.coordinates?.[1]}, {viewVehicle.branch?.location?.coordinates?.[0]}
+                  <strong>Branch Coordinates:</strong> {viewVehicle.branch?.location?.coordinates[1]}, {viewVehicle.branch?.location?.coordinates[0]}
                 </div>
                 <div className="mb-3">
                   <strong>Transmission:</strong> {viewVehicle.type}
