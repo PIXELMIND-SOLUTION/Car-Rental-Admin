@@ -532,6 +532,7 @@ const Vehicles = () => {
             variant="success"
             className="me-2"
             onClick={handleDownload}
+            disabled={vehicles.length === 0}
           >
             <i className="fas fa-file-excel me-2"></i>Export to Excel
           </Button>
@@ -544,6 +545,18 @@ const Vehicles = () => {
         </div>
       ) : error ? (
         <Alert variant="danger">{error}</Alert>
+      ) : vehicles.length === 0 ? (
+        // No vehicles message
+        <div className="text-center py-5">
+          <div className="mb-4">
+            <i className="fas fa-car fa-4x text-muted"></i>
+          </div>
+          <h4 className="text-muted mb-3">No Vehicles Found</h4>
+          <p className="text-muted mb-4">Get started by adding your first vehicle to the system.</p>
+          <Button variant="primary" size="lg" onClick={openAddModal}>
+            <i className="fas fa-plus me-2"></i>Add Your First Vehicle
+          </Button>
+        </div>
       ) : (
         <>
           <div className="table-responsive">
@@ -578,7 +591,7 @@ const Vehicles = () => {
               <tbody>
                 {paginatedVehicles.length === 0 ? (
                   <tr>
-                    <td colSpan="23" className="text-center">No vehicles found.</td>
+                    <td colSpan="23" className="text-center">No vehicles match your search criteria.</td>
                   </tr>
                 ) : (
                   paginatedVehicles.map((vehicle, index) => (
