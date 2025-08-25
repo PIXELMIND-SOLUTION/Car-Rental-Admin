@@ -574,7 +574,8 @@ const Vehicles = () => {
                   <th>Ext. Price/Hr</th>
                   <th>Ext. Price/Day</th>
                   <th>Status</th>
-                  <th>Running Status</th>
+                  <th>Bookings</th>
+                  {/* <th>Running Status</th> */}
                   {/* <th>Availability</th> */}
                   <th>Fuel</th>
                   <th>Seats</th>
@@ -619,11 +620,21 @@ const Vehicles = () => {
                           {vehicle.status || 'active'}
                         </span>
                       </td>
+                      {/* New Bookings Column */}
                       <td>
+                        <span
+                          className={`badge bg-${vehicle.bookedStatus?.length > 0 ? "danger" : "info"
+                            }`}
+                        >
+                          {vehicle.bookedStatus?.length || 0}
+                        </span>
+                      </td>
+
+                      {/* <td>
                         <span className={`badge bg-${vehicle.runningStatus === 'Available' ? 'success' : 'danger'}`}>
                           {vehicle.runningStatus || 'Available'}
                         </span>
-                      </td>
+                      </td> */}
                       {/* <td>
                         <span className={`badge bg-${vehicle.availabilityStatus !== false ? 'success' : 'danger'}`}>
                           {vehicle.availabilityStatus !== false ? 'Available' : 'Unavailable'}
@@ -903,78 +914,50 @@ const Vehicles = () => {
             <div className="row">
               <div className="col-md-6">
                 <h4 className="mb-3">{viewVehicle.carName} - {viewVehicle.model}</h4>
+                <div className="mb-3"><strong>Year:</strong> {viewVehicle.year}</div>
+                <div className="mb-3"><strong>Vehicle Number:</strong> {viewVehicle.vehicleNumber || '-'}</div>
+                <div className="mb-3"><strong>Location:</strong> {viewVehicle.location}</div>
+                <div className="mb-3"><strong>Branch:</strong> {viewVehicle.branch?.name || '-'}</div>
                 <div className="mb-3">
-                  <strong>Year:</strong> {viewVehicle.year}
+                  <strong>Branch Coordinates:</strong>{" "}
+                  {viewVehicle.branch?.location?.coordinates[1]},{" "}
+                  {viewVehicle.branch?.location?.coordinates[0]}
                 </div>
-                <div className="mb-3">
-                  <strong>Vehicle Number:</strong> {viewVehicle.vehicleNumber || '-'}
-                </div>
-                <div className="mb-3">
-                  <strong>Location:</strong> {viewVehicle.location}
-                </div>
-                <div className="mb-3">
-                  <strong>Branch:</strong> {viewVehicle.branch?.name || '-'}
-                </div>
-                <div className="mb-3">
-                  <strong>Branch Coordinates:</strong> {viewVehicle.branch?.location?.coordinates[1]}, {viewVehicle.branch?.location?.coordinates[0]}
-                </div>
-                <div className="mb-3">
-                  <strong>Transmission:</strong> {viewVehicle.type}
-                </div>
-                <div className="mb-3">
-                  <strong>Car Type:</strong> {viewVehicle.carType}
-                </div>
-                <div className="mb-3">
-                  <strong>Fuel:</strong> {viewVehicle.fuel}
-                </div>
-                <div className="mb-3">
-                  <strong>Seats:</strong> {viewVehicle.seats}
-                </div>
+                <div className="mb-3"><strong>Transmission:</strong> {viewVehicle.type}</div>
+                <div className="mb-3"><strong>Car Type:</strong> {viewVehicle.carType}</div>
+                <div className="mb-3"><strong>Fuel:</strong> {viewVehicle.fuel}</div>
+                <div className="mb-3"><strong>Seats:</strong> {viewVehicle.seats}</div>
               </div>
+
               <div className="col-md-6">
-                <div className="mb-3">
-                  <strong>Price Per Hour:</strong> ₹{viewVehicle.pricePerHour}
-                </div>
-                <div className="mb-3">
-                  <strong>Price Per Day:</strong> ₹{viewVehicle.pricePerDay}
-                </div>
-                <div className="mb-3">
-                  <strong>Extended Price Per Hour:</strong> ₹{viewVehicle.extendedPrice?.perHour || '-'}
-                </div>
-                <div className="mb-3">
-                  <strong>Extended Price Per Day:</strong> ₹{viewVehicle.extendedPrice?.perDay || '-'}
-                </div>
-                <div className="mb-3">
-                  <strong>Delay Per Hour:</strong> ₹{viewVehicle.delayPerHour || '-'}
-                </div>
-                <div className="mb-3">
-                  <strong>Delay Per Day:</strong> ₹{viewVehicle.delayPerDay || '-'}
-                </div>
+                <div className="mb-3"><strong>Price Per Hour:</strong> ₹{viewVehicle.pricePerHour}</div>
+                <div className="mb-3"><strong>Price Per Day:</strong> ₹{viewVehicle.pricePerDay}</div>
+                <div className="mb-3"><strong>Extended Price Per Hour:</strong> ₹{viewVehicle.extendedPrice?.perHour || '-'}</div>
+                <div className="mb-3"><strong>Extended Price Per Day:</strong> ₹{viewVehicle.extendedPrice?.perDay || '-'}</div>
+                <div className="mb-3"><strong>Delay Per Hour:</strong> ₹{viewVehicle.delayPerHour || '-'}</div>
+                <div className="mb-3"><strong>Delay Per Day:</strong> ₹{viewVehicle.delayPerDay || '-'}</div>
                 <div className="mb-3">
                   <strong>Status:</strong>
                   <span className={`badge bg-${viewVehicle.status === 'active' ? 'success' : 'warning'} ms-2`}>
                     {viewVehicle.status || 'active'}
                   </span>
                 </div>
-                <div className="mb-3">
+                {/* <div className="mb-3">
                   <strong>Running Status:</strong>
                   <span className={`badge bg-${viewVehicle.runningStatus === 'Available' ? 'success' : 'danger'} ms-2`}>
                     {viewVehicle.runningStatus || 'Available'}
                   </span>
-                </div>
-                {/* <div className="mb-3">
-                  <strong>Availability:</strong>
-                  <span className={`badge bg-${viewVehicle.availabilityStatus !== false ? 'success' : 'danger'} ms-2`}>
-                    {viewVehicle.availabilityStatus !== false ? 'Available' : 'Unavailable'}
-                  </span>
                 </div> */}
               </div>
+
               <div className="col-12">
                 <div className="mb-3">
                   <strong>Description:</strong>
                   <p>{viewVehicle.description || '-'}</p>
                 </div>
               </div>
+
+              {/* Car Images */}
               <div className="row">
                 <div className="col-md-6">
                   <h5>Car Images</h5>
@@ -1014,8 +997,39 @@ const Vehicles = () => {
                   )}
                 </div>
               </div>
-            </div>
 
+              {/* Booked Status Table */}
+              <div className="col-12 mt-4">
+                <h5 className="mb-3">Booked Status</h5>
+                {viewVehicle.bookedStatus?.length > 0 ? (
+                  <div className="table-responsive">
+                    <table className="table table-hover align-middle shadow-sm rounded">
+                      <thead className="table-header">
+                        <tr>
+                          <th style={{ width: "70px" }} className="text-center">SNO</th>
+                          <th>Booking Details</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {viewVehicle.bookedStatus.map((status, index) => (
+                          <tr key={index}>
+                            <td className="text-center fw-bold">{index + 1}</td>
+                            <td>
+                              <span className="badge bg-light text-dark p-2 shadow-sm">
+                                {status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="alert alert-info mb-0">No bookings yet</div>
+                )}
+              </div>
+
+            </div>
           ) : (
             <Spinner animation="border" variant="primary" />
           )}
@@ -1024,6 +1038,7 @@ const Vehicles = () => {
           <Button variant="secondary" onClick={closeViewModal}>Close</Button>
         </Modal.Footer>
       </Modal>
+
     </div>
   );
 };
