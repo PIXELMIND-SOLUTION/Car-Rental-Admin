@@ -34,7 +34,8 @@ const Vehicles = () => {
     branchName: '',
     branchLat: '',
     branchLng: '',
-    runningStatus: 'Available'
+    runningStatus: 'Available',
+    isPremium: false // Added isPremium field
   });
   const [searchType, setSearchType] = useState('carName');
   const [searchText, setSearchText] = useState('');
@@ -89,6 +90,7 @@ const Vehicles = () => {
         case 'type':
         case 'carType':
         case 'fuel':
+        case 'isPremium': // Added isPremium to search
           value = v[searchType] || '';
           break;
         case 'branchName':
@@ -133,7 +135,8 @@ const Vehicles = () => {
       branchName: '',
       branchLat: '',
       branchLng: '',
-      runningStatus: 'Available'
+      runningStatus: 'Available',
+      isPremium: false // Default value for new vehicle
     });
     setFiles([]);
     setDocFiles([]);
@@ -168,7 +171,8 @@ const Vehicles = () => {
       branchName: vehicle.branch?.name || '',
       branchLat: vehicle.branch?.location?.coordinates?.[1] || '',
       branchLng: vehicle.branch?.location?.coordinates?.[0] || '',
-      runningStatus: vehicle.runningStatus || 'Available'
+      runningStatus: vehicle.runningStatus || 'Available',
+      isPremium: vehicle.isPremium || false // Added isPremium
     });
 
     // Check if fields are custom (not in predefined list)
@@ -197,8 +201,13 @@ const Vehicles = () => {
   const closeViewModal = () => setShowViewModal(false);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+
+    if (type === 'checkbox') {
+      setFormData((prev) => ({ ...prev, [name]: checked }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleExtendedPriceChange = (e) => {
@@ -279,7 +288,12 @@ const Vehicles = () => {
         };
         formDataToSend.append(key, JSON.stringify(branchData));
       } else if (key !== 'carImage' && key !== 'carDocs' && key !== 'branchName' && key !== 'branchLat' && key !== 'branchLng') {
-        formDataToSend.append(key, formData[key]);
+        // Convert boolean values to string for FormData
+        if (key === 'isPremium') {
+          formDataToSend.append(key, formData[key].toString());
+        } else {
+          formDataToSend.append(key, formData[key]);
+        }
       }
     });
 
@@ -322,7 +336,6 @@ const Vehicles = () => {
         toast.success('Car added successfully!');
       }
       setShowModal(false);
-      // console.log(res)
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -374,6 +387,7 @@ const Vehicles = () => {
         BranchLocation: v.branch?.location ? `${v.branch.location.coordinates[1]}, ${v.branch.location.coordinates[0]}` : '-',
         Images: (v.carImage || []).join(', ') || '-',
         Documents: (v.carDocs || []).join(', ') || '-',
+        IsPremium: v.isPremium ? 'Yes' : 'No' // Added isPremium to Excel export
       }));
 
       // Create sheet & workbook
@@ -388,7 +402,7 @@ const Vehicles = () => {
         { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 10 },
         { wch: 10 }, { wch: 15 }, { wch: 20 }, { wch: 30 },
         { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 20 },
-        { wch: 25 }, { wch: 40 }, { wch: 40 }
+        { wch: 25 }, { wch: 40 }, { wch: 40 }, { wch: 10 }
       ];
 
       // Add header styling
@@ -411,6 +425,25 @@ const Vehicles = () => {
     } catch (error) {
       console.error('Error generating vehicle Excel:', error);
       toast.error('Failed to download vehicle data.', { autoClose: 2000 });
+    }
+  };
+
+  // Add this function to your component
+  const handleRefresh = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('http://194.164.148.244:4062/api/car/get-cars');
+      if (!res.ok) throw new Error('Failed to fetch vehicles');
+      const data = await res.json();
+      const reversed = (data.cars || []).reverse();
+      setVehicles(reversed);
+      setFilteredVehicles(reversed);
+      setCurrentPage(1);
+      toast.success('Data refreshed successfully!');
+    } catch (err) {
+      toast.error('Failed to refresh: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -481,7 +514,6 @@ const Vehicles = () => {
     );
   };
 
-
   return (
     <div className="container-fluid p-3">
       <ToastContainer position="top-right" autoClose={2000} />
@@ -496,7 +528,7 @@ const Vehicles = () => {
             Add Vehicle
           </Button>
         </div>
-      </div>
+      </div>      
 
       {/* Filter/Search */}
       <div className="row mb-3">
@@ -515,9 +547,10 @@ const Vehicles = () => {
             <option value="type">Search by Transmission Type</option>
             <option value="carType">Search by Car Type</option>
             <option value="fuel">Search by Fuel Type</option>
+            <option value="isPremium">Search by Premium Status</option> {/* Added isPremium to search options */}
           </Form.Select>
         </div>
-        <div className="col-md-6">
+        <div className="col-md-5">
           <InputGroup>
             <FormControl
               type="text"
@@ -527,7 +560,12 @@ const Vehicles = () => {
             />
           </InputGroup>
         </div>
-        <div className="col-md-3 text-end">
+        <div className="col-md-2 text-end">
+          <Button variant="info" className="me-2" onClick={handleRefresh}>
+            <i className="fas fa-sync-alt"></i> Refresh
+          </Button>
+          </div>
+        <div className="col-md-2">
           <Button
             variant="success"
             className="me-2"
@@ -575,8 +613,7 @@ const Vehicles = () => {
                   <th>Ext. Price/Day</th>
                   <th>Status</th>
                   <th>Bookings</th>
-                  {/* <th>Running Status</th> */}
-                  {/* <th>Availability</th> */}
+                  <th>Premium</th> {/* Added Premium column */}
                   <th>Fuel</th>
                   <th>Seats</th>
                   <th>Type</th>
@@ -592,7 +629,7 @@ const Vehicles = () => {
               <tbody>
                 {paginatedVehicles.length === 0 ? (
                   <tr>
-                    <td colSpan="23" className="text-center">No vehicles match your search criteria.</td>
+                    <td colSpan="24" className="text-center">No vehicles match your search criteria.</td>
                   </tr>
                 ) : (
                   paginatedVehicles.map((vehicle, index) => (
@@ -620,7 +657,7 @@ const Vehicles = () => {
                           {vehicle.status || 'active'}
                         </span>
                       </td>
-                      {/* New Bookings Column */}
+                      {/* Bookings Column */}
                       <td>
                         <span
                           className={`badge bg-${vehicle.bookedStatus?.length > 0 ? "danger" : "info"
@@ -629,17 +666,12 @@ const Vehicles = () => {
                           {vehicle.bookedStatus?.length || 0}
                         </span>
                       </td>
-
-                      {/* <td>
-                        <span className={`badge bg-${vehicle.runningStatus === 'Available' ? 'success' : 'danger'}`}>
-                          {vehicle.runningStatus || 'Available'}
+                      {/* Premium Column */}
+                      <td>
+                        <span className={`badge bg-${vehicle.isPremium ? 'warning' : 'secondary'}`}>
+                          {vehicle.isPremium ? 'Premium' : 'Standard'}
                         </span>
-                      </td> */}
-                      {/* <td>
-                        <span className={`badge bg-${vehicle.availabilityStatus !== false ? 'success' : 'danger'}`}>
-                          {vehicle.availabilityStatus !== false ? 'Available' : 'Unavailable'}
-                        </span>
-                      </td> */}
+                      </td>
                       <td>{vehicle.fuel}</td>
                       <td>{vehicle.seats}</td>
                       <td>{vehicle.type}</td>
@@ -833,20 +865,20 @@ const Vehicles = () => {
                 </Form.Select>
               </Form.Group>
 
-              {/* <Form.Group className="mb-3 col-md-4">
-                <Form.Label>Availability Status</Form.Label>
-                <Form.Select
-                  name="availabilityStatus"
-                  value={formData.availabilityStatus}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    availabilityStatus: e.target.value === 'true'
-                  }))}
-                >
-                  <option value="true">Available</option>
-                  <option value="false">Not Available</option>
-                </Form.Select>
-              </Form.Group> */}
+              {/* Premium Status Checkbox */}
+              <Form.Group className="mb-3 col-md-4">
+                <Form.Label>Premium Vehicle</Form.Label>
+                <div className="mt-2">
+                  <Form.Check
+                    type="switch"
+                    id="isPremium"
+                    name="isPremium"
+                    label={formData.isPremium ? "Premium Vehicle" : "Standard Vehicle"}
+                    checked={formData.isPremium}
+                    onChange={handleChange}
+                  />
+                </div>
+              </Form.Group>
 
               <Form.Group className="mb-3 col-12">
                 <Form.Label>Description</Form.Label>
@@ -927,6 +959,12 @@ const Vehicles = () => {
                 <div className="mb-3"><strong>Car Type:</strong> {viewVehicle.carType}</div>
                 <div className="mb-3"><strong>Fuel:</strong> {viewVehicle.fuel}</div>
                 <div className="mb-3"><strong>Seats:</strong> {viewVehicle.seats}</div>
+                <div className="mb-3">
+                  <strong>Premium Status:</strong>
+                  <span className={`badge bg-${viewVehicle.isPremium ? 'warning' : 'secondary'} ms-2`}>
+                    {viewVehicle.isPremium ? 'Premium Vehicle' : 'Standard Vehicle'}
+                  </span>
+                </div>
               </div>
 
               <div className="col-md-6">
@@ -942,12 +980,12 @@ const Vehicles = () => {
                     {viewVehicle.status || 'active'}
                   </span>
                 </div>
-                {/* <div className="mb-3">
+                <div className="mb-3">
                   <strong>Running Status:</strong>
                   <span className={`badge bg-${viewVehicle.runningStatus === 'Available' ? 'success' : 'danger'} ms-2`}>
                     {viewVehicle.runningStatus || 'Available'}
                   </span>
-                </div> */}
+                </div>
               </div>
 
               <div className="col-12">

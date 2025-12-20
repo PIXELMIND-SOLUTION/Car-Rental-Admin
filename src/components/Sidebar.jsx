@@ -13,7 +13,9 @@ import {
   FaSignOutAlt,
   FaChevronLeft,
   FaChevronRight,
-  FaBars
+  FaBars,
+  FaTools,
+  FaMedal
 } from 'react-icons/fa';
 import '../assets/sidebar.css';
 
@@ -25,9 +27,11 @@ const Sidebar = ({ isCollapsed, onToggleCollapse, isMobile }) => {
     { path: '/admin/users', icon: <FaUsers />, label: 'Users' },
     { path: '/admin/staff', icon: <FaUserTie />, label: 'Staff' },
     { path: '/admin/vehicles', icon: <FaCarSide />, label: 'Vehicles' },
+    { path: '/admin/premium-deposits', icon: <FaMedal />, label: 'Premium Deposits' },
     { path: '/admin/bookings', icon: <FaClipboardList />, label: 'Bookings' },
     { path: '/admin/banners', icon: <FaImages />, label: 'Banners' },
     { path: '/admin/notifications', icon: <FaBell />, label: 'Notifications' },
+    { path: '/admin/maintanence', icon: <FaTools />, label: 'Maintenance' },
     { path: '/admin/settings', icon: <FaCog />, label: 'Settings' },
     { 
       path: '/logout', // fake path, not used for navigation
