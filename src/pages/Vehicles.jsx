@@ -48,6 +48,7 @@ const Vehicles = () => {
   const [showCustomTypeInput, setShowCustomTypeInput] = useState(false);
   const [showCustomCarTypeInput, setShowCustomCarTypeInput] = useState(false);
   const [showCustomFuelInput, setShowCustomFuelInput] = useState(false);
+  const [showPremiumOnly, setShowPremiumOnly] = useState(false); // Added state for premium filter
 
   // Predefined options for dropdowns
   const transmissionTypes = ['Automatic', 'Manual'];
@@ -78,29 +79,48 @@ const Vehicles = () => {
   }, []);
 
   const filterVehicles = () => {
-    const filtered = vehicles.filter((v) => {
-      let value = '';
-      switch (searchType) {
-        case 'carName':
-        case 'model':
-        case 'location':
-        case 'status':
-        case 'vehicleNumber':
-        case 'runningStatus':
-        case 'type':
-        case 'carType':
-        case 'fuel':
-        case 'isPremium': // Added isPremium to search
-          value = v[searchType] || '';
-          break;
-        case 'branchName':
-          value = v.branch?.name || '';
-          break;
-        default:
-          value = '';
-      }
-      return value.toString().toLowerCase().includes(searchText.toLowerCase());
-    });
+    let filtered = vehicles;
+
+    // Apply premium filter if enabled
+    if (showPremiumOnly) {
+      filtered = filtered.filter(v => v.isPremium === true);
+    }
+
+    // Apply search filter if there's search text
+    if (searchText.trim() !== '') {
+      filtered = filtered.filter((v) => {
+        let value = '';
+        switch (searchType) {
+          case 'carName':
+          case 'model':
+          case 'location':
+          case 'status':
+          case 'vehicleNumber':
+          case 'runningStatus':
+          case 'type':
+          case 'carType':
+          case 'fuel':
+            value = v[searchType] || '';
+            break;
+          case 'isPremium':
+            // Handle premium status search specifically
+            if (searchText.toLowerCase() === 'premium' || searchText.toLowerCase() === 'yes' || searchText === 'true') {
+              return v.isPremium === true;
+            } else if (searchText.toLowerCase() === 'standard' || searchText.toLowerCase() === 'no' || searchText === 'false') {
+              return v.isPremium === false;
+            }
+            // Fallback to string comparison
+            value = v.isPremium ? 'premium' : 'standard';
+            return value.includes(searchText.toLowerCase());
+          case 'branchName':
+            value = v.branch?.name || '';
+            break;
+          default:
+            value = '';
+        }
+        return value.toString().toLowerCase().includes(searchText.toLowerCase());
+      });
+    }
 
     setFilteredVehicles(filtered);
     setCurrentPage(1);
@@ -108,7 +128,7 @@ const Vehicles = () => {
 
   useEffect(() => {
     filterVehicles();
-  }, [searchText, searchType, vehicles]);
+  }, [searchText, searchType, vehicles, showPremiumOnly]); // Added showPremiumOnly dependency
 
   const openAddModal = () => {
     setEditingVehicle(null);
@@ -447,6 +467,11 @@ const Vehicles = () => {
     }
   };
 
+  // Toggle premium filter
+  const togglePremiumFilter = () => {
+    setShowPremiumOnly(!showPremiumOnly);
+  };
+
   // Pagination logic
   const totalPages = Math.ceil(filteredVehicles.length / itemsPerPage);
   const paginatedVehicles = filteredVehicles.slice(
@@ -560,20 +585,27 @@ const Vehicles = () => {
             />
           </InputGroup>
         </div>
-        <div className="col-md-2 text-end">
-          <Button variant="info" className="me-2" onClick={handleRefresh}>
-            <i className="fas fa-sync-alt"></i> Refresh
-          </Button>
+        <div className="col-md-4">
+          <div className="d-flex justify-content-end">
+            <Button 
+              variant={showPremiumOnly ? "warning" : "outline-warning"} 
+              className="me-2"
+              onClick={togglePremiumFilter}
+            >
+              <i className="fas fa-crown me-2"></i>
+              {showPremiumOnly ? "Show All Cars" : "Premium Cars Only"}
+            </Button>
+            <Button variant="info" className="me-2" onClick={handleRefresh}>
+              <i className="fas fa-sync-alt"></i> Refresh
+            </Button>
+            <Button
+              variant="success"
+              onClick={handleDownload}
+              disabled={vehicles.length === 0}
+            >
+              <i className="fas fa-file-excel me-2"></i>Export
+            </Button>
           </div>
-        <div className="col-md-2">
-          <Button
-            variant="success"
-            className="me-2"
-            onClick={handleDownload}
-            disabled={vehicles.length === 0}
-          >
-            <i className="fas fa-file-excel me-2"></i>Export to Excel
-          </Button>
         </div>
       </div>
 
@@ -597,6 +629,13 @@ const Vehicles = () => {
         </div>
       ) : (
         <>
+          {showPremiumOnly && (
+            <Alert variant="warning" className="mb-3">
+              <i className="fas fa-crown me-2"></i>
+              Showing only premium vehicles ({filteredVehicles.length} found)
+            </Alert>
+          )}
+          
           <div className="table-responsive">
             <Table bordered hover striped>
               <thead>

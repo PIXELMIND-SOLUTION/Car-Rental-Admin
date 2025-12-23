@@ -27,7 +27,7 @@ const Sidebar = ({ isCollapsed, onToggleCollapse, isMobile }) => {
     { path: '/admin/users', icon: <FaUsers />, label: 'Users' },
     { path: '/admin/staff', icon: <FaUserTie />, label: 'Staff' },
     { path: '/admin/vehicles', icon: <FaCarSide />, label: 'Vehicles' },
-    { path: '/admin/premium-deposits', icon: <FaMedal />, label: 'Premium Deposits' },
+    // { path: '/admin/premium-deposits', icon: <FaMedal />, label: 'Premium Deposits' },
     { path: '/admin/bookings', icon: <FaClipboardList />, label: 'Bookings' },
     { path: '/admin/banners', icon: <FaImages />, label: 'Banners' },
     { path: '/admin/notifications', icon: <FaBell />, label: 'Notifications' },

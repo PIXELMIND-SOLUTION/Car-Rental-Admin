@@ -42,7 +42,9 @@ const Bookings = () => {
             return booking.rentalStartDate ? new Date(booking.rentalStartDate).toLocaleDateString() : '';
           case "replaced":
             // Search for bookings with car replacement
-            return booking.carReplacementHistory ? "replaced" : "";
+            const hasReplacement = booking.carReplacementHistory && 
+              booking.carReplacementHistory.newCarId;
+            return hasReplacement ? "Yes" : "No";
           default:
             return "";
         }
@@ -98,12 +100,12 @@ const Bookings = () => {
         };
 
         setBookingDetails(combinedBooking);
-        
+
         // Fetch car details if there's replacement history
         if (combinedBooking.carReplacementHistory) {
           const oldCarId = combinedBooking.carReplacementHistory.oldCarId?._id;
           const newCarId = combinedBooking.carReplacementHistory.newCarId?._id;
-          
+
           const [oldCarDetails, newCarDetails] = await Promise.all([
             oldCarId ? fetchCarDetails(oldCarId) : null,
             newCarId ? fetchCarDetails(newCarId) : null
@@ -116,7 +118,7 @@ const Bookings = () => {
         } else {
           setReplacedCarDetails({ oldCar: null, newCar: null });
         }
-        
+
         setShowDetailsModal(true);
       }
     } catch (error) {
@@ -194,10 +196,35 @@ const Bookings = () => {
   };
 
   const getReplacementBadge = (booking) => {
-    if (booking.carReplacementHistory) {
-      return <Badge bg="warning" className="ms-1">Car Replaced</Badge>;
+    const hasReplacement = booking?.carReplacementHistory && 
+      booking.carReplacementHistory.newCarId;
+
+    if (hasReplacement) {
+      return (
+        <Badge bg="warning" className="ms-1">
+          Car Replaced
+        </Badge>
+      );
     }
     return null;
+  };
+
+  const getReplacementStatus = (booking) => {
+    const hasReplacement = booking?.carReplacementHistory && 
+      booking.carReplacementHistory.newCarId;
+
+    if (hasReplacement) {
+      return (
+        <Badge bg="warning" className="text-capitalize">
+          Yes
+        </Badge>
+      );
+    }
+    return (
+      <Badge bg="secondary" className="text-capitalize">
+        No
+      </Badge>
+    );
   };
 
   const indexOfLastBooking = currentPage * bookingsPerPage;
@@ -402,12 +429,12 @@ const Bookings = () => {
       return (
         <>
           <div>
-            <strong>Current Car:</strong> {booking.car?.carName || 'N/A'} 
+            <strong>Current Car:</strong> {booking.car?.carName || 'N/A'}
             {getReplacementBadge(booking)}
           </div>
-          <div className="small text-muted">
+          {/* <div className="small text-muted">
             (Originally: {booking.carReplacementHistory.oldCarId?.carName || 'N/A'})
-          </div>
+          </div> */}
         </>
       );
     }
@@ -419,9 +446,9 @@ const Bookings = () => {
       return (
         <>
           <div>{booking.car?.model || 'N/A'}</div>
-          <div className="small text-muted">
+          {/* <div className="small text-muted">
             (Originally: {booking.carReplacementHistory.oldCarId?.model || 'N/A'})
-          </div>
+          </div> */}
         </>
       );
     }
@@ -431,7 +458,7 @@ const Bookings = () => {
   return (
     <div className="container-fluid mt-4">
       <ToastContainer position="top-right" autoClose={2000} />
-      <div className="d-flex justify-content-start allign-items-center">
+      <div className="d-flex justify-content-start align-items-center">
         <h2 className="mb-4">Bookings Management</h2>
       </div>
 
@@ -459,7 +486,7 @@ const Bookings = () => {
                       : filterField === 'status' ? 'Status'
                         : filterField === 'paymentstatus' ? 'Payment Status'
                           : filterField === 'rentaldate' ? 'Rental Date'
-                            : filterField === 'replaced' ? 'Car Replacements'
+                            : filterField === 'replaced' ? 'Car Replacements (Yes/No)'
                               : ''}`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -472,7 +499,7 @@ const Bookings = () => {
       </Row>
 
       <div className="table-responsive">
-        <Table  bordered hover responsive>
+        <Table bordered hover responsive>
           <thead>
             <tr className="table-header">
               <th>S.NO</th>
@@ -481,6 +508,7 @@ const Bookings = () => {
               <th>Email</th>
               <th>Car</th>
               <th>Model</th>
+              <th>Replaced</th>
               <th>Rental Start Date</th>
               <th>Rental End Date</th>
               <th>Timings</th>
@@ -497,13 +525,14 @@ const Bookings = () => {
           <tbody>
             {currentBookings.length > 0 ? (
               currentBookings.map((booking, index) => (
-                <tr key={booking._id} className={booking.carReplacementHistory ? 'table-info' : ''}>
+                <tr key={booking._id} className={booking.carReplacementHistory?.newCarId ? 'table-info' : ''}>
                   <td className="text-center">{(currentPage - 1) * bookingsPerPage + index + 1}</td>
                   <td>{booking._id.slice(-6) || 'N/A'}</td>
                   <td>{booking.userId?.name || 'N/A'}</td>
                   <td>{booking.userId?.email || 'N/A'}</td>
                   <td>{renderCarInfo(booking)}</td>
                   <td>{renderCarModel(booking)}</td>
+                  <td>{getReplacementStatus(booking)}</td>
                   <td>{booking.rentalStartDate ? new Date(booking.rentalStartDate).toLocaleDateString() : 'N/A'}</td>
                   <td>{booking.rentalEndDate ? new Date(booking.rentalEndDate).toLocaleDateString() : 'N/A'}</td>
                   <td>{booking.from || 'N/A'} - {booking.to || 'N/A'}</td>
@@ -538,7 +567,7 @@ const Bookings = () => {
               ))
             ) : (
               <tr>
-                <td colSpan="17" className="text-center">No bookings found</td>
+                <td colSpan="18" className="text-center">No bookings found</td>
               </tr>
             )}
           </tbody>
@@ -730,64 +759,111 @@ const Bookings = () => {
                   <p><strong>Last Updated:</strong> {new Date(bookingDetails.updatedAt).toLocaleString()}</p>
                 </div>
 
-                {/* Car Replacement History Section */}
-                {bookingDetails.carReplacementHistory && (
+                {/* Car Replacement History Section - UPDATED */}
+                {bookingDetails.carReplacementHistory && bookingDetails.carReplacementHistory.newCarId && (
                   <Card className="mb-4 border-warning">
-                    <Card.Header className="bg-warning text-dark">
-                      <strong><i className="fas fa-exchange-alt me-2"></i>Car Replacement History</strong>
+                    <Card.Header className="bg-warning text-dark d-flex justify-content-between align-items-center">
+                      <div>
+                        <strong><i className="fas fa-exchange-alt me-2"></i>Car Replacement Details</strong>
+                      </div>
+                      <Badge bg="danger">Car Replaced</Badge>
                     </Card.Header>
                     <Card.Body>
                       <Row>
-                        <Col md={6}>
-                          <h6>Original Car</h6>
-                          <p><strong>Name:</strong> {bookingDetails.carReplacementHistory.oldCarId?.carName || 'N/A'}</p>
-                          <p><strong>Model:</strong> {bookingDetails.carReplacementHistory.oldCarId?.model || 'N/A'}</p>
-                          <p><strong>Vehicle No:</strong> {replacedCarDetails.oldCar?.vehicleNumber || 'N/A'}</p>
-                          <p><strong>Year:</strong> {replacedCarDetails.oldCar?.year || 'N/A'}</p>
-                          <p><strong>Type:</strong> {replacedCarDetails.oldCar?.type || 'N/A'}</p>
-                          {bookingDetails.carReplacementHistory.oldCarId?.carImage?.[0] && (
-                            <img
-                              src={bookingDetails.carReplacementHistory.oldCarId.carImage[0]}
-                              alt="Original Car"
-                              className="img-thumbnail mt-2"
-                              style={{ maxHeight: '150px' }}
-                            />
-                          )}
-                        </Col>
-                        <Col md={6}>
-                          <h6>Replacement Car</h6>
-                          <p><strong>Name:</strong> {bookingDetails.carReplacementHistory.newCarId?.carName || 'N/A'}</p>
-                          <p><strong>Model:</strong> {bookingDetails.carReplacementHistory.newCarId?.model || 'N/A'}</p>
-                          <p><strong>Vehicle No:</strong> {replacedCarDetails.newCar?.vehicleNumber || 'N/A'}</p>
-                          <p><strong>Year:</strong> {replacedCarDetails.newCar?.year || 'N/A'}</p>
-                          <p><strong>Type:</strong> {replacedCarDetails.newCar?.type || 'N/A'}</p>
-                          {bookingDetails.carReplacementHistory.newCarId?.carImage?.[0] && (
-                            <img
-                              src={bookingDetails.carReplacementHistory.newCarId.carImage[0]}
-                              alt="Replacement Car"
-                              className="img-thumbnail mt-2"
-                              style={{ maxHeight: '150px' }}
-                            />
-                          )}
+                        <Col md={12} className="mb-3">
+                          <div className="alert alert-info">
+                            <i className="fas fa-info-circle me-2"></i>
+                            <strong>Note:</strong> The original car was replaced with a different vehicle during this booking.
+                          </div>
                         </Col>
                       </Row>
+                      
+                      <Row>
+                        <Col md={6}>
+                          <Card className="border-danger h-100">
+                            <Card.Header className="bg-danger text-white">
+                              <strong>Original Car (Assigned Initially)</strong>
+                            </Card.Header>
+                            <Card.Body>
+                              <p><strong>Name:</strong> {bookingDetails.carReplacementHistory.oldCarId?.carName || 'N/A'}</p>
+                              <p><strong>Model:</strong> {bookingDetails.carReplacementHistory.oldCarId?.model || 'N/A'}</p>
+                              <p><strong>Vehicle Number:</strong> {replacedCarDetails.oldCar?.vehicleNumber || 'N/A'}</p>
+                              <p><strong>Year:</strong> {replacedCarDetails.oldCar?.year || 'N/A'}</p>
+                              <p><strong>Type:</strong> {replacedCarDetails.oldCar?.type || 'N/A'}</p>
+                              <p><strong>Fuel:</strong> {replacedCarDetails.oldCar?.fuel || 'N/A'}</p>
+                              <p><strong>Seats:</strong> {replacedCarDetails.oldCar?.seats || 'N/A'}</p>
+                              {bookingDetails.carReplacementHistory.oldCarId?.carImage?.[0] && (
+                                <div className="mt-2">
+                                  <p><strong>Car Image:</strong></p>
+                                  <img
+                                    src={bookingDetails.carReplacementHistory.oldCarId.carImage[0]}
+                                    alt="Original Car"
+                                    className="img-thumbnail"
+                                    style={{ maxHeight: '150px' }}
+                                  />
+                                </div>
+                              )}
+                            </Card.Body>
+                          </Card>
+                        </Col>
+                        <Col md={6}>
+                          <Card className="border-success h-100">
+                            <Card.Header className="bg-success text-white">
+                              <strong>Current Car (Replacement)</strong>
+                            </Card.Header>
+                            <Card.Body>
+                              <p><strong>Name:</strong> {bookingDetails.carReplacementHistory.newCarId?.carName || 'N/A'}</p>
+                              <p><strong>Model:</strong> {bookingDetails.carReplacementHistory.newCarId?.model || 'N/A'}</p>
+                              <p><strong>Vehicle Number:</strong> {replacedCarDetails.newCar?.vehicleNumber || 'N/A'}</p>
+                              <p><strong>Year:</strong> {replacedCarDetails.newCar?.year || 'N/A'}</p>
+                              <p><strong>Type:</strong> {replacedCarDetails.newCar?.type || 'N/A'}</p>
+                              <p><strong>Fuel:</strong> {replacedCarDetails.newCar?.fuel || 'N/A'}</p>
+                              <p><strong>Seats:</strong> {replacedCarDetails.newCar?.seats || 'N/A'}</p>
+                              {bookingDetails.carReplacementHistory.newCarId?.carImage?.[0] && (
+                                <div className="mt-2">
+                                  <p><strong>Car Image:</strong></p>
+                                  <img
+                                    src={bookingDetails.carReplacementHistory.newCarId.carImage[0]}
+                                    alt="Replacement Car"
+                                    className="img-thumbnail"
+                                    style={{ maxHeight: '150px' }}
+                                  />
+                                </div>
+                              )}
+                            </Card.Body>
+                          </Card>
+                        </Col>
+                      </Row>
+                      
                       <hr />
+                      
                       <div className="mt-3">
-                        <p><strong>Replaced At:</strong> {new Date(bookingDetails.carReplacementHistory.replacedAt).toLocaleString()}</p>
-                        <p><strong>Payment Adjustment:</strong> ₹{bookingDetails.carReplacementHistory.paymentAdjustment || 0}</p>
-                        <p><strong>Extra Payment Required:</strong> {bookingDetails.carReplacementHistory.extraPaymentRequired ? 'Yes' : 'No'}</p>
-                        <p><strong>Staff Payment Due:</strong> ₹{bookingDetails.carReplacementHistory.staffPaymentDue || 0}</p>
-                        <p><strong>Staff Payment Status:</strong>
-                          <Badge bg={bookingDetails.carReplacementHistory.staffPaymentStatus === 'paid' ? 'success' : 'warning'} className="ms-2">
-                            {bookingDetails.carReplacementHistory.staffPaymentStatus || 'N/A'}
-                          </Badge>
-                        </p>
-                        <p><strong>Replacement Transaction ID:</strong> {bookingDetails.carReplacementHistory.transactionId || 'N/A'}</p>
-                        <p><strong>Payment Status:</strong>
-                          <Badge bg={bookingDetails.carReplacementHistory.paymentStatus === 'paid' ? 'success' : 'warning'} className="ms-2">
-                            {bookingDetails.carReplacementHistory.paymentStatus || 'N/A'}
-                          </Badge>
-                        </p>
+                        <h6><i className="fas fa-cog me-2"></i>Replacement Details</h6>
+                        <Row>
+                          <Col md={6}>
+                            <p><strong>Replaced At:</strong> {new Date(bookingDetails.carReplacementHistory.replacedAt).toLocaleString()}</p>
+                            <p><strong>Payment Adjustment:</strong> ₹{bookingDetails.carReplacementHistory.paymentAdjustment || 0}</p>
+                            <p><strong>Extra Payment Required:</strong> 
+                              <Badge bg={bookingDetails.carReplacementHistory.extraPaymentRequired ? 'danger' : 'success'} className="ms-2">
+                                {bookingDetails.carReplacementHistory.extraPaymentRequired ? 'Yes' : 'No'}
+                              </Badge>
+                            </p>
+                          </Col>
+                          <Col md={6}>
+                            <p><strong>Staff Payment Due:</strong> ₹{bookingDetails.carReplacementHistory.staffPaymentDue || 0}</p>
+                            <p><strong>Staff Payment Status:</strong>
+                              <Badge bg={bookingDetails.carReplacementHistory.staffPaymentStatus === 'paid' ? 'success' : 'warning'} className="ms-2">
+                                {bookingDetails.carReplacementHistory.staffPaymentStatus || 'Pending'}
+                              </Badge>
+                            </p>
+                            <p><strong>Replacement Transaction ID:</strong> {bookingDetails.carReplacementHistory.transactionId || 'N/A'}</p>
+                            <p><strong>Payment Status:</strong>
+                              <Badge bg={bookingDetails.carReplacementHistory.paymentStatus === 'paid' ? 'success' : 'warning'} className="ms-2">
+                                {bookingDetails.carReplacementHistory.paymentStatus || 'Pending'}
+                              </Badge>
+                            </p>
+                          </Col>
+                        </Row>
                       </div>
                     </Card.Body>
                   </Card>
