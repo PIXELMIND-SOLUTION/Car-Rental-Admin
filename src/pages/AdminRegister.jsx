@@ -19,7 +19,7 @@
 //     setLoading(true);
 
 //     try {
-//       const response = await fetch('http://194.164.148.244:4062/api/admin/register', {
+//       const response = await fetch('https://varahibackend.varahiselfdrivecars.com/api/admin/register', {
 //         method: 'POST',
 //         headers: { 'Content-Type': 'application/json' },
 //         body: JSON.stringify(formData),

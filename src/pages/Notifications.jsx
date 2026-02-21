@@ -12,7 +12,7 @@ const Notifications = () => {
   const fetchNotifications = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://194.164.148.244:4062/api/admin/allnotifications');
+      const res = await axios.get('https://varahibackend.varahiselfdrivecars.com/api/admin/allnotifications');
       setNotifications(res.data.notifications || []);
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
@@ -28,7 +28,7 @@ const Notifications = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this notification?")) return;
     try {
-      await axios.delete(`http://194.164.148.244:4062/api/admin/deletenotification/${id}`);
+      await axios.delete(`https://varahibackend.varahiselfdrivecars.com/api/admin/deletenotification/${id}`);
       setNotifications((prev) => prev.filter((n) => n._id !== id));
     } catch (err) {
       console.error('Error deleting notification:', err);

@@ -33,7 +33,7 @@ const Settings = () => {
 
   const fetchAdminProfile = async () => {
     try {
-      const res = await axios.get(`http://194.164.148.244:4062/api/admin/profileadmin/${userId}`);
+      const res = await axios.get(`https://varahibackend.varahiselfdrivecars.com/api/admin/profileadmin/${userId}`);
       const data = res.data.admin;
       setAdminData({
         name: data.name || '',
@@ -89,7 +89,7 @@ const Settings = () => {
 
     try {
       const response = await axios.put(
-        `http://194.164.148.244:4062/api/admin/updateadmin/${userId}`,
+        `https://varahibackend.varahiselfdrivecars.com/api/admin/updateadmin/${userId}`,
         payload,
         {
           headers: {

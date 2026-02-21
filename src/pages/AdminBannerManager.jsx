@@ -6,7 +6,7 @@ import axios from 'axios';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-const API_BASE = 'http://194.164.148.244:4062/api/car';
+const API_BASE = 'https://varahibackend.varahiselfdrivecars.com/api/car';
 
 const AdminBannerManager = () => {
     const [banners, setBanners] = useState([]);

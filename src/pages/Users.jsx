@@ -33,7 +33,7 @@ const Users = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const res = await fetch('http://194.164.148.244:4062/api/admin/allusers');
+        const res = await fetch('https://varahibackend.varahiselfdrivecars.com/api/admin/allusers');
         if (!res.ok) throw new Error('Failed to fetch users');
         const data = await res.json();
 
@@ -71,7 +71,7 @@ const Users = () => {
       setEditingIndex(index);
 
       // Fetch detailed user data before showing edit form
-      const res = await fetch(`http://194.164.148.244:4062/api/users/get-user/${user.id}`);
+      const res = await fetch(`https://varahibackend.varahiselfdrivecars.com/api/users/get-user/${user.id}`);
       if (!res.ok) throw new Error('Failed to fetch user details');
       const data = await res.json();
 
@@ -114,7 +114,7 @@ const Users = () => {
     try {
       if (editingIndex !== null) {
         const userId = users[editingIndex].id;
-        const res = await fetch(`http://194.164.148.244:4062/api/admin/updateuser/${userId}`, {
+        const res = await fetch(`https://varahibackend.varahiselfdrivecars.com/api/admin/updateuser/${userId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -165,7 +165,7 @@ const Users = () => {
     if (!confirmDelete) return;
 
     try {
-      const res = await fetch(`http://194.164.148.244:4062/api/admin/deleteuser/${user.id}`, {
+      const res = await fetch(`https://varahibackend.varahiselfdrivecars.com/api/admin/deleteuser/${user.id}`, {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error('Failed to delete user');
@@ -182,7 +182,7 @@ const Users = () => {
 
   const handleViewDetails = async (userId) => {
     try {
-      const res = await fetch(`http://194.164.148.244:4062/api/users/get-user/${userId}`);
+      const res = await fetch(`https://varahibackend.varahiselfdrivecars.com/api/users/get-user/${userId}`);
       if (!res.ok) throw new Error('Failed to fetch user details');
       const data = await res.json();
       setDetailedUser(data.user);
@@ -257,7 +257,7 @@ const Users = () => {
       const detailedUsers = await Promise.all(
         users.map(async (user) => {
           try {
-            const res = await fetch(`http://194.164.148.244:4062/api/users/get-user/${user.id}`);
+            const res = await fetch(`https://varahibackend.varahiselfdrivecars.com/api/users/get-user/${user.id}`);
             if (!res.ok) throw new Error(`Failed to fetch details for user ${user.id}`);
             const data = await res.json();
             return data.user;

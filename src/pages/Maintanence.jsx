@@ -13,7 +13,7 @@ const MaintenanceSettings = () => {
   const fetchMaintenanceStatus = async () => {
     try {
       const res = await axios.get(
-        "http://194.164.148.244:4062/api/admin/maintenance-status"
+        "https://varahibackend.varahiselfdrivecars.com/api/admin/maintenance-status"
       );
 
       if (res.data) {
@@ -36,7 +36,7 @@ const MaintenanceSettings = () => {
 
     try {
       await axios.post(
-        "http://194.164.148.244:4062/api/admin/setmaintenance",
+        "https://varahibackend.varahiselfdrivecars.com/api/admin/setmaintenance",
         { status, message },
         { headers: { "Content-Type": "application/json" } }
       );

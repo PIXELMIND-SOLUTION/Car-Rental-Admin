@@ -24,7 +24,7 @@ const AdminLogin = () => {
     setLoading(true);
 
     try {
-      const response = await fetch('http://194.164.148.244:4062/api/admin/login', {
+      const response = await fetch('https://varahibackend.varahiselfdrivecars.com/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobile, password }),

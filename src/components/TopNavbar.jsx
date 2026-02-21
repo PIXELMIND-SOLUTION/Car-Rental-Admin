@@ -16,7 +16,7 @@ const TopNavbar = ({ onToggleSidebar }) => {
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const response = await axios.get('http://194.164.148.244:4062/api/admin/allnotifications');
+        const response = await axios.get('https://varahibackend.varahiselfdrivecars.com/api/admin/allnotifications');
         if (response.data?.notifications) {
           setNotifications(response.data.notifications);
         }

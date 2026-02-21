@@ -54,10 +54,10 @@ const Dashboard = () => {
     const fetchDashboardData = async () => {
       try {
         const [userRes, vehicleRes, bookingRes, staffRes] = await Promise.all([
-          axios.get('http://194.164.148.244:4062/api/admin/allusers'),
-          axios.get('http://194.164.148.244:4062/api/car/get-cars'),
-          axios.get('http://194.164.148.244:4062/api/staff/allbookings'),
-          axios.get('http://194.164.148.244:4062/api/admin/getallstaffs'),
+          axios.get('https://varahibackend.varahiselfdrivecars.com/api/admin/allusers'),
+          axios.get('https://varahibackend.varahiselfdrivecars.com/api/car/get-cars'),
+          axios.get('https://varahibackend.varahiselfdrivecars.com/api/staff/allbookings'),
+          axios.get('https://varahibackend.varahiselfdrivecars.com/api/admin/getallstaffs'),
         ]);
 
         const users = userRes.data.users || [];

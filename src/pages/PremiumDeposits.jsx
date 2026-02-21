@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
-const BASE_URL = "http://194.164.148.244:4062/api/admin";
+const BASE_URL = "https://varahibackend.varahiselfdrivecars.com/api/admin";
 
 const PremiumDeposits = () => {
   const [deposits, setDeposits] = useState([]);

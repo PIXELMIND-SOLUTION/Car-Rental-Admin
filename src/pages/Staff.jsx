@@ -120,7 +120,7 @@ const Staff = () => {
 
   const fetchStaff = async () => {
     try {
-      const res = await fetch('http://194.164.148.244:4062/api/admin/getallstaffs');
+      const res = await fetch('https://varahibackend.varahiselfdrivecars.com/api/admin/getallstaffs');
       if (!res.ok) throw new Error('Failed to fetch staff');
       const data = await res.json();
       // Reverse order (newest first)
@@ -193,8 +193,8 @@ const Staff = () => {
     try {
       const method = editingStaff ? 'PUT' : 'POST';
       const url = editingStaff
-        ? `http://194.164.148.244:4062/api/admin/updatestaff/${editingStaff._id}`
-        : 'http://194.164.148.244:4062/api/admin/addstaff';
+        ? `https://varahibackend.varahiselfdrivecars.com/api/admin/updatestaff/${editingStaff._id}`
+        : 'https://varahibackend.varahiselfdrivecars.com/api/admin/addstaff';
 
       const payload = {
         ...formData,
@@ -221,7 +221,7 @@ const Staff = () => {
     if (!window.confirm('Are you sure you want to delete this staff member?')) return;
     try {
       const res = await fetch(
-        `http://194.164.148.244:4062/api/admin/deletestaff/${id}`,
+        `https://varahibackend.varahiselfdrivecars.com/api/admin/deletestaff/${id}`,
         { method: 'DELETE' }
       );
       if (!res.ok) throw new Error('Failed to delete staff');

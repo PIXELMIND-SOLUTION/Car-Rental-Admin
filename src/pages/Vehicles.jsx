@@ -58,7 +58,7 @@ const Vehicles = () => {
   useEffect(() => {
     const fetchVehicles = async () => {
       try {
-        const res = await fetch('http://194.164.148.244:4062/api/car/get-cars');
+        const res = await fetch('https://varahibackend.varahiselfdrivecars.com/api/car/get-cars');
         if (!res.ok) throw new Error('Failed to fetch vehicles');
         const data = await res.json();
         const carList = data.cars || [];
@@ -207,7 +207,7 @@ const Vehicles = () => {
 
   const openViewModal = async (id) => {
     try {
-      const res = await fetch(`http://194.164.148.244:4062/api/car/getcar/${id}`);
+      const res = await fetch(`https://varahibackend.varahiselfdrivecars.com/api/car/getcar/${id}`);
       if (!res.ok) throw new Error('Failed to fetch vehicle details');
       const data = await res.json();
       setViewVehicle(data);
@@ -335,7 +335,7 @@ const Vehicles = () => {
     try {
       let res, result;
       if (editingVehicle) {
-        res = await fetch(`http://194.164.148.244:4062/api/car/updatecar/${editingVehicle._id}`, {
+        res = await fetch(`https://varahibackend.varahiselfdrivecars.com/api/car/updatecar/${editingVehicle._id}`, {
           method: 'PUT',
           body: formDataToSend,
         });
@@ -346,7 +346,7 @@ const Vehicles = () => {
         );
         toast.success('Car updated successfully!');
       } else {
-        res = await fetch('http://194.164.148.244:4062/api/car/add-cars', {
+        res = await fetch('https://varahibackend.varahiselfdrivecars.com/api/car/add-cars', {
           method: 'POST',
           body: formDataToSend,
         });
@@ -366,7 +366,7 @@ const Vehicles = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this vehicle?')) {
       try {
-        const res = await fetch(`http://194.164.148.244:4062/api/car/deletecar/${id}`, {
+        const res = await fetch(`https://varahibackend.varahiselfdrivecars.com/api/car/deletecar/${id}`, {
           method: 'DELETE',
         });
         if (!res.ok) throw new Error('Failed to delete vehicle');
@@ -452,7 +452,7 @@ const Vehicles = () => {
   const handleRefresh = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://194.164.148.244:4062/api/car/get-cars');
+      const res = await fetch('https://varahibackend.varahiselfdrivecars.com/api/car/get-cars');
       if (!res.ok) throw new Error('Failed to fetch vehicles');
       const data = await res.json();
       const reversed = (data.cars || []).reverse();
