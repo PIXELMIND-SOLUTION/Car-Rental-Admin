@@ -31,6 +31,7 @@ const Sidebar = ({ isCollapsed, onToggleCollapse, isMobile }) => {
     { path: '/admin/bookings', icon: <FaClipboardList />, label: 'Bookings' },
     { path: '/admin/banners', icon: <FaImages />, label: 'Banners' },
     { path: '/admin/notifications', icon: <FaBell />, label: 'Notifications' },
+    { path: '/admin/paymentlogs', icon: <FaBell />, label: 'PaymentLogs' },
     { path: '/admin/maintanence', icon: <FaTools />, label: 'Maintenance' },
     { path: '/admin/settings', icon: <FaCog />, label: 'Settings' },
     { 

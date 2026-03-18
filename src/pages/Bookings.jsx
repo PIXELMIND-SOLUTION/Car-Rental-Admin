@@ -11,7 +11,6 @@ const RAZORPAY_KEY_ID = 'rzp_live_R7WEc7UNXkN075';
 // Load Razorpay script dynamically
 const loadRazorpayScript = (src) => {
   return new Promise((resolve) => {
-    // Check if script is already loaded
     if (window.Razorpay) {
       console.log('Razorpay SDK already loaded');
       resolve(true);
@@ -41,6 +40,7 @@ const Bookings = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showExtendModal, setShowExtendModal] = useState(false);
   const [showReplaceModal, setShowReplaceModal] = useState(false);
+  const [showExtensionsModal, setShowExtensionsModal] = useState(false); // NEW: Extensions modal
   const [currentPage, setCurrentPage] = useState(1);
   const [filterField, setFilterField] = useState("name");
   const [searchQuery, setSearchQuery] = useState("");
@@ -56,11 +56,20 @@ const Bookings = () => {
     transactionId: "",
     amount: "",
     staffRefund: "",
-    paymentType: "none" // "none", "partial", "full"
+    paymentType: "none"
   });
   const [cars, setCars] = useState([]);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isReplacingCar, setIsReplacingCar] = useState(false);
+  
+  // Date Filters
+  const [startDateFilter, setStartDateFilter] = useState("");      // Rental Start Date filter
+  const [endDateFilter, setEndDateFilter] = useState("");          // Rental End Date filter
+  const [createdDateFilter, setCreatedDateFilter] = useState("");  // Booking Created Date filter
+  
+  // Excel download loading state
+  const [isDownloading, setIsDownloading] = useState(false);
+  
   const bookingsPerPage = 10;
 
   useEffect(() => {
@@ -69,7 +78,8 @@ const Bookings = () => {
   }, []);
 
   const filterBookings = useCallback(() => {
-    const filtered = bookings.filter((booking) => {
+    let filtered = bookings.filter((booking) => {
+      // Apply search filter
       const fieldVal = (() => {
         switch (filterField) {
           case "id":
@@ -84,22 +94,55 @@ const Bookings = () => {
             return booking.status || '';
           case "paymentstatus":
             return booking.paymentStatus || '';
-          case "rentaldate":
+          case "rentalstartdate":
             return booking.rentalStartDate ? new Date(booking.rentalStartDate).toLocaleDateString() : '';
+          case "rentalenddate":
+            return booking.rentalEndDate ? new Date(booking.rentalEndDate).toLocaleDateString() : '';
+          case "createdat":
+            return booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : '';
           case "replaced":
-            // Search for bookings with car replacement
             const hasReplacement = booking.carReplacementHistory && 
-              booking.carReplacementHistory.newCarId;
+              booking.carReplacementHistory.length > 0;
             return hasReplacement ? "Yes" : "No";
+          case "extensions": // NEW: Filter by extension count
+            const extensionCount = booking.extensions?.length || 0;
+            return extensionCount > 0 ? "Extended" : "Not Extended";
           default:
             return "";
         }
       })();
-      return fieldVal.toString().toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesSearch = fieldVal.toString().toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Apply date filters
+      let matchesStartDate = true;
+      let matchesEndDate = true;
+      let matchesCreatedDate = true;
+      
+      // 1. Rental Start Date filter
+      if (startDateFilter) {
+        const bookingStartDate = booking.rentalStartDate ? new Date(booking.rentalStartDate).toISOString().split('T')[0] : '';
+        matchesStartDate = bookingStartDate === startDateFilter;
+      }
+      
+      // 2. Rental End Date filter
+      if (endDateFilter) {
+        const bookingEndDate = booking.rentalEndDate ? new Date(booking.rentalEndDate).toISOString().split('T')[0] : '';
+        matchesEndDate = bookingEndDate === endDateFilter;
+      }
+      
+      // 3. Booking Created Date filter
+      if (createdDateFilter) {
+        const bookingCreatedDate = booking.createdAt ? new Date(booking.createdAt).toISOString().split('T')[0] : '';
+        matchesCreatedDate = bookingCreatedDate === createdDateFilter;
+      }
+      
+      return matchesSearch && matchesStartDate && matchesEndDate && matchesCreatedDate;
     });
+    
     setFilteredBookings(filtered);
     setCurrentPage(1);
-  }, [bookings, searchQuery, filterField]);
+  }, [bookings, searchQuery, filterField, startDateFilter, endDateFilter, createdDateFilter]);
 
   useEffect(() => {
     filterBookings();
@@ -109,7 +152,6 @@ const Bookings = () => {
     try {
       const response = await axios.get("https://varahibackend.varahiselfdrivecars.com/api/staff/allbookings");
       if (response.data?.bookings) {
-        // Reverse order (newest first)
         const reversed = (response.data.bookings || []).reverse();
         setBookings(reversed);
       }
@@ -144,14 +186,10 @@ const Bookings = () => {
 
   const fetchBookingDetails = async (bookingId) => {
     try {
-      // Find the booking in our existing bookings array first to get delayedPaymentProof
       const existingBooking = bookings.find(b => b._id === bookingId);
-
-      // Then fetch the detailed booking info
       const response = await axios.get(`https://varahibackend.varahiselfdrivecars.com/api/staff/singlebooking/${bookingId}`);
 
       if (response.data?.booking) {
-        // Combine the data from both sources
         const combinedBooking = {
           ...response.data.booking,
           delayedPaymentProof: existingBooking?.delayedPaymentProof
@@ -159,10 +197,10 @@ const Bookings = () => {
 
         setBookingDetails(combinedBooking);
 
-        // Fetch car details if there's replacement history
-        if (combinedBooking.carReplacementHistory) {
-          const oldCarId = combinedBooking.carReplacementHistory.oldCarId?._id;
-          const newCarId = combinedBooking.carReplacementHistory.newCarId?._id;
+        if (combinedBooking.carReplacementHistory && combinedBooking.carReplacementHistory.length > 0) {
+          const latestReplacement = combinedBooking.carReplacementHistory[combinedBooking.carReplacementHistory.length - 1];
+          const oldCarId = latestReplacement.oldCarId?._id;
+          const newCarId = latestReplacement.newCarId?._id;
 
           const [oldCarDetails, newCarDetails] = await Promise.all([
             oldCarId ? fetchCarDetails(oldCarId) : null,
@@ -170,8 +208,8 @@ const Bookings = () => {
           ]);
 
           setReplacedCarDetails({
-            oldCar: oldCarDetails || combinedBooking.carReplacementHistory.oldCarId,
-            newCar: newCarDetails || combinedBooking.carReplacementHistory.newCarId
+            oldCar: oldCarDetails || latestReplacement.oldCarId,
+            newCar: newCarDetails || latestReplacement.newCarId
           });
         } else {
           setReplacedCarDetails({ oldCar: null, newCar: null });
@@ -188,14 +226,13 @@ const Bookings = () => {
   const handleEdit = (booking) => {
     setSelectedBooking({
       ...booking,
-      editedAmount: booking.totalPrice // Initialize edited amount with current total price
+      editedAmount: booking.totalPrice
     });
     setShowEditModal(true);
   };
 
   const handleExtend = (booking) => {
     setSelectedBooking(booking);
-    // Reset extension data
     setExtensionData({
       extendDeliveryDate: "",
       extendDeliveryTime: "",
@@ -205,9 +242,14 @@ const Bookings = () => {
     setShowExtendModal(true);
   };
 
+  // NEW: Handle View Extensions
+  const handleViewExtensions = (booking) => {
+    setSelectedBooking(booking);
+    setShowExtensionsModal(true);
+  };
+
   const handleReplace = (booking) => {
     setSelectedBooking(booking);
-    // Reset replace data
     setReplaceData({
       newCarId: "",
       transactionId: "",
@@ -218,354 +260,357 @@ const Bookings = () => {
     setShowReplaceModal(true);
   };
 
-  const initRazorpayPayment = async () => {
-  try {
-    if (!selectedBooking) {
-      toast.error("No booking selected");
-      return;
-    }
-
-    // FIX: Extract userId from selectedBooking.userId._id
-    const userId = selectedBooking.userId?._id;
-    const bookingId = selectedBooking._id;
-
-    if (!userId) {
-      toast.error("User ID not found in booking data");
-      return;
-    }
-
-    // Validate required fields
-    if (!extensionData.amount || parseFloat(extensionData.amount) <= 0) {
-      toast.error("Please enter a valid extension amount");
-      return;
-    }
-
-    // Validate date/time or hours
-    if (!extensionData.hours && (!extensionData.extendDeliveryDate || !extensionData.extendDeliveryTime)) {
-      toast.error("Please provide either hours or date/time for extension");
-      return;
-    }
-
-    setIsProcessingPayment(true);
-    toast.info("Initializing payment gateway...", { autoClose: 1500 });
-
-    // Load Razorpay script if not already loaded
-    const isScriptLoaded = await loadRazorpayScript('https://checkout.razorpay.com/v1/checkout.js');
-    
-    if (!isScriptLoaded) {
-      toast.error("Payment gateway failed to load. Please check your connection and try again.");
-      setIsProcessingPayment(false);
-      return;
-    }
-
-    // Wait a moment to ensure Razorpay is fully loaded
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Check if Razorpay is available
-    if (!window.Razorpay) {
-      toast.error("Payment service is temporarily unavailable. Please refresh the page and try again.");
-      setIsProcessingPayment(false);
-      return;
-    }
-
-    // Create Razorpay order options
-    const amountInPaise = Math.round(parseFloat(extensionData.amount) * 100); // Convert to paise
-    const currentDate = new Date().toLocaleDateString('en-IN');
-
-    const options = {
-      key: RAZORPAY_KEY_ID,
-      amount: amountInPaise,
-      currency: "INR",
-      name: "Car Rental Extension",
-      description: `Booking Extension - ${bookingId.slice(-6)}`,
-      handler: async (response) => {
-        // Payment successful, now extend the booking
-        await handleExtensionPaymentSuccess(response.razorpay_payment_id);
-      },
-      prefill: {
-        name: selectedBooking.userId?.name || "",
-        email: selectedBooking.userId?.email || "",
-        contact: selectedBooking.userId?.mobile || ""
-      },
-      notes: {
-        bookingId: bookingId,
-        userId: userId, // Now passing correct userId string
-        extensionDate: currentDate,
-        extensionType: extensionData.hours ? 'hours' : 'datetime',
-        value: extensionData.hours || `${extensionData.extendDeliveryDate} ${extensionData.extendDeliveryTime}`
-      },
-      theme: {
-        color: "#3399cc"
-      },
-      modal: {
-        ondismiss: function() {
-          console.log('Checkout form closed by user');
-          if (!isProcessingPayment) {
-            toast.info("Payment was cancelled");
-          }
-          setIsProcessingPayment(false);
-        }
+  // NEW FUNCTION: Handle OTP Generation
+  const handleGenerateOTP = async (bookingId) => {
+    try {
+      // Show loading toast
+      toast.info("Generating OTP...", { autoClose: false, toastId: 'otp-loading' });
+      
+      // Call the API
+      const response = await axios.put(
+        `https://varahibackend.varahiselfdrivecars.com/api/staff/update-otp/${bookingId}`
+      );
+      
+      // Remove loading toast
+      toast.dismiss('otp-loading');
+      
+      if (response.data && response.data.otp) {
+        // Show success message with OTP
+        toast.success(`OTP generated successfully: ${response.data.otp}`, {
+          autoClose: 5000
+        });
+        
+        // Refresh bookings to show updated OTP
+        await fetchBookings();
+      } else {
+        toast.success("OTP generated successfully!");
+        await fetchBookings();
       }
-    };
+    } catch (error) {
+      // Remove loading toast
+      toast.dismiss('otp-loading');
+      
+      console.error("Error generating OTP:", error);
+      
+      // Show error message
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || "Failed to generate OTP";
+      toast.error(`Error: ${errorMessage}`);
+    }
+  };
 
-    // Initialize Razorpay
-    const razorpayInstance = new window.Razorpay(options);
-    
-    razorpayInstance.on('payment.failed', function (response) {
-      console.error('Payment failed:', response.error);
-      const errorDescription = response.error?.description || response.error?.error?.description || 'Payment failed';
-      toast.error(`Payment Failed: ${errorDescription}`);
+  const initRazorpayPayment = async () => {
+    try {
+      if (!selectedBooking) {
+        toast.error("No booking selected");
+        return;
+      }
+
+      const userId = selectedBooking.userId?._id;
+      const bookingId = selectedBooking._id;
+
+      if (!userId) {
+        toast.error("User ID not found in booking data");
+        return;
+      }
+
+      if (!extensionData.amount || parseFloat(extensionData.amount) <= 0) {
+        toast.error("Please enter a valid extension amount");
+        return;
+      }
+
+      if (!extensionData.hours && (!extensionData.extendDeliveryDate || !extensionData.extendDeliveryTime)) {
+        toast.error("Please provide either hours or date/time for extension");
+        return;
+      }
+
+      setIsProcessingPayment(true);
+      toast.info("Initializing payment gateway...", { autoClose: 1500 });
+
+      const isScriptLoaded = await loadRazorpayScript('https://checkout.razorpay.com/v1/checkout.js');
+      
+      if (!isScriptLoaded) {
+        toast.error("Payment gateway failed to load. Please check your connection and try again.");
+        setIsProcessingPayment(false);
+        return;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      if (!window.Razorpay) {
+        toast.error("Payment service is temporarily unavailable. Please refresh the page and try again.");
+        setIsProcessingPayment(false);
+        return;
+      }
+
+      const amountInPaise = Math.round(parseFloat(extensionData.amount) * 100);
+      const currentDate = new Date().toLocaleDateString('en-IN');
+
+      const options = {
+        key: RAZORPAY_KEY_ID,
+        amount: amountInPaise,
+        currency: "INR",
+        name: "Car Rental Extension",
+        description: `Booking Extension - ${bookingId.slice(-6)}`,
+        handler: async (response) => {
+          await handleExtensionPaymentSuccess(response.razorpay_payment_id);
+        },
+        prefill: {
+          name: selectedBooking.userId?.name || "",
+          email: selectedBooking.userId?.email || "",
+          contact: selectedBooking.userId?.mobile || ""
+        },
+        notes: {
+          bookingId: bookingId,
+          userId: userId,
+          extensionDate: currentDate,
+          extensionType: extensionData.hours ? 'hours' : 'datetime',
+          value: extensionData.hours || `${extensionData.extendDeliveryDate} ${extensionData.extendDeliveryTime}`
+        },
+        theme: {
+          color: "#3399cc"
+        },
+        modal: {
+          ondismiss: function() {
+            console.log('Checkout form closed by user');
+            if (!isProcessingPayment) {
+              toast.info("Payment was cancelled");
+            }
+            setIsProcessingPayment(false);
+          }
+        }
+      };
+
+      const razorpayInstance = new window.Razorpay(options);
+      
+      razorpayInstance.on('payment.failed', function (response) {
+        console.error('Payment failed:', response.error);
+        const errorDescription = response.error?.description || response.error?.error?.description || 'Payment failed';
+        toast.error(`Payment Failed: ${errorDescription}`);
+        setIsProcessingPayment(false);
+      });
+
+      razorpayInstance.open();
+      
+    } catch (error) {
+      console.error("Error initializing Razorpay:", error);
+      toast.error("Failed to initialize payment. Please try again.");
       setIsProcessingPayment(false);
-    });
-
-    razorpayInstance.open();
-    
-  } catch (error) {
-    console.error("Error initializing Razorpay:", error);
-    toast.error("Failed to initialize payment. Please try again.");
-    setIsProcessingPayment(false);
-  }
-};
+    }
+  };
 
   const handleExtensionPaymentSuccess = async (paymentId) => {
-  try {
-    if (!selectedBooking) return;
+    try {
+      if (!selectedBooking) return;
 
-    // FIX: Extract userId from selectedBooking.userId._id
-    const userId = selectedBooking.userId?._id;
-    const bookingId = selectedBooking._id;
-    
-    if (!userId) {
-      toast.error("User ID not found in booking data");
-      setIsProcessingPayment(false);
-      return;
-    }
-
-    // Prepare extension data with transaction ID
-    const extensionPayload = {
-      ...extensionData,
-      transactionId: paymentId
-    };
-
-    console.log("Sending extension request:", {
-      userId,
-      bookingId,
-      payload: extensionPayload
-    });
-
-    // Make API call to extend booking
-    const response = await axios.put(
-      `https://varahibackend.varahiselfdrivecars.com/api/users/extendbookings/${userId}/${bookingId}`,
-      extensionPayload
-    );
-
-    if (response.data.message) {
-      toast.success(response.data.message);
-      setShowExtendModal(false);
-      fetchBookings(); // Refresh bookings list
+      const userId = selectedBooking.userId?._id;
+      const bookingId = selectedBooking._id;
       
-      // Reset extension data
-      setExtensionData({
-        extendDeliveryDate: "",
-        extendDeliveryTime: "",
-        hours: "",
-        amount: ""
+      if (!userId) {
+        toast.error("User ID not found in booking data");
+        setIsProcessingPayment(false);
+        return;
+      }
+
+      const extensionPayload = {
+        ...extensionData,
+        transactionId: paymentId
+      };
+
+      console.log("Sending extension request:", {
+        userId,
+        bookingId,
+        payload: extensionPayload
       });
+
+      const response = await axios.put(
+        `https://varahibackend.varahiselfdrivecars.com/api/users/extendbookings/${userId}/${bookingId}`,
+        extensionPayload
+      );
+
+      if (response.data.message) {
+        toast.success(response.data.message);
+        setShowExtendModal(false);
+        fetchBookings();
+        
+        setExtensionData({
+          extendDeliveryDate: "",
+          extendDeliveryTime: "",
+          hours: "",
+          amount: ""
+        });
+      }
+    } catch (error) {
+      console.error("Error extending booking:", error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || "Failed to extend booking after payment";
+      toast.error(`Error: ${errorMessage}`);
+    } finally {
+      setIsProcessingPayment(false);
     }
-  } catch (error) {
-    console.error("Error extending booking:", error);
-    const errorMessage = error.response?.data?.message || error.response?.data?.error || "Failed to extend booking after payment";
-    toast.error(`Error: ${errorMessage}`);
-  } finally {
-    setIsProcessingPayment(false);
-  }
-};
+  };
 
   const handleReplaceCar = async () => {
-  try {
-    if (!selectedBooking) {
-      toast.error("No booking selected");
-      return;
-    }
-
-    const userId = selectedBooking.userId?._id;
-    const bookingId = selectedBooking._id;
-    
-    if (!userId) {
-      toast.error("User ID not found in booking data");
-      return;
-    }
-
-    if (!replaceData.newCarId) {
-      toast.error("Please select a new car");
-      return;
-    }
-
-    setIsReplacingCar(true);
-
-    // Prepare payload based on payment type
-    let payload = {
-      bookingId,
-      newCarId: replaceData.newCarId
-    };
-
-    // Add staff refund if provided
-    if (replaceData.staffRefund) {
-      payload.staffRefund = parseFloat(replaceData.staffRefund);
-      
-      // If amount and transaction ID also provided, add them
-      if (replaceData.amount && replaceData.transactionId) {
-        payload.amount = parseFloat(replaceData.amount);
-        payload.transactionId = replaceData.transactionId;
+    try {
+      if (!selectedBooking) {
+        toast.error("No booking selected");
+        return;
       }
-    } else {
-      // No staff refund, check if payment is required
-      // if (replaceData.requirePayment && (!replaceData.transactionId || !replaceData.amount)) {
-      //   toast.error("Transaction ID and Amount are required for payment");
-      //   setIsReplacingCar(false);
-      //   return;
-      // }
+
+      const userId = selectedBooking.userId?._id;
+      const bookingId = selectedBooking._id;
       
-      // Add payment details if required
-      if (replaceData.requirePayment && replaceData.transactionId && replaceData.amount) {
-        payload.transactionId = replaceData.transactionId;
-        payload.amount = parseFloat(replaceData.amount);
+      if (!userId) {
+        toast.error("User ID not found in booking data");
+        return;
       }
-    }
 
-    console.log("Sending car replacement request:", {
-      userId,
-      payload
-    });
+      if (!replaceData.newCarId) {
+        toast.error("Please select a new car");
+        return;
+      }
 
-    // Make API call to replace car
-    const response = await axios.put(
-      `https://varahibackend.varahiselfdrivecars.com/api/users/replace-car/${userId}`,
-      payload
-    );
+      setIsReplacingCar(true);
 
-    if (response.data.message) {
-      toast.success(response.data.message);
-      setShowReplaceModal(false);
-      fetchBookings(); // Refresh bookings list
-      
-      // Reset replace data
-      setReplaceData({
-        newCarId: "",
-        transactionId: "",
-        amount: "",
-        staffRefund: "",
-        requirePayment: false
-      });
-    }
-  } catch (error) {
-    console.error("Error replacing car:", error);
-    const errorMessage = error.response?.data?.message || error.response?.data?.error || "Failed to replace car";
-    toast.error(`Error: ${errorMessage}`);
-  } finally {
-    setIsReplacingCar(false);
-  }
-};
+      let payload = {
+        bookingId,
+        newCarId: replaceData.newCarId
+      };
 
-// New function to handle payment with Razorpay
-const initReplaceCarPayment = async () => {
-  try {
-    if (!selectedBooking) {
-      toast.error("No booking selected");
-      return;
-    }
-
-    if (!replaceData.amount || parseFloat(replaceData.amount) <= 0) {
-      toast.error("Please enter a valid amount for payment");
-      return;
-    }
-
-    setIsProcessingPayment(true);
-    toast.info("Initializing payment gateway...", { autoClose: 1500 });
-
-    // Load Razorpay script if not already loaded
-    const isScriptLoaded = await loadRazorpayScript('https://checkout.razorpay.com/v1/checkout.js');
-    
-    if (!isScriptLoaded) {
-      toast.error("Payment gateway failed to load. Please check your connection and try again.");
-      setIsProcessingPayment(false);
-      return;
-    }
-
-    // Wait a moment to ensure Razorpay is fully loaded
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Check if Razorpay is available
-    if (!window.Razorpay) {
-      toast.error("Payment service is temporarily unavailable. Please refresh the page and try again.");
-      setIsProcessingPayment(false);
-      return;
-    }
-
-    const bookingId = selectedBooking._id;
-    const amountInPaise = Math.round(parseFloat(replaceData.amount) * 100);
-    const currentDate = new Date().toLocaleDateString('en-IN');
-
-    const options = {
-      key: RAZORPAY_KEY_ID,
-      amount: amountInPaise,
-      currency: "INR",
-      name: "Car Replacement Payment",
-      description: `Car Replacement - Booking ${bookingId.slice(-6)}`,
-      handler: async (response) => {
-        // Payment successful, now set transaction ID and proceed with replacement
-        setReplaceData(prev => ({
-          ...prev,
-          transactionId: response.razorpay_payment_id
-        }));
+      if (replaceData.staffRefund) {
+        payload.staffRefund = parseFloat(replaceData.staffRefund);
         
-        // Wait a moment for state to update
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Now proceed with car replacement
-        await handleReplaceCar();
-      },
-      prefill: {
-        name: selectedBooking.userId?.name || "",
-        email: selectedBooking.userId?.email || "",
-        contact: selectedBooking.userId?.mobile || ""
-      },
-      notes: {
-        bookingId: bookingId,
-        purpose: "car_replacement",
-        date: currentDate
-      },
-      theme: {
-        color: "#3399cc"
-      },
-      modal: {
-        ondismiss: function() {
-          console.log('Checkout form closed by user');
-          toast.info("Payment was cancelled");
-          setIsProcessingPayment(false);
+        if (replaceData.amount && replaceData.transactionId) {
+          payload.amount = parseFloat(replaceData.amount);
+          payload.transactionId = replaceData.transactionId;
+        }
+      } else {
+        if (replaceData.requirePayment && replaceData.transactionId && replaceData.amount) {
+          payload.transactionId = replaceData.transactionId;
+          payload.amount = parseFloat(replaceData.amount);
         }
       }
-    };
 
-    // Initialize Razorpay
-    const razorpayInstance = new window.Razorpay(options);
-    
-    razorpayInstance.on('payment.failed', function (response) {
-      console.error('Payment failed:', response.error);
-      const errorDescription = response.error?.description || response.error?.error?.description || 'Payment failed';
-      toast.error(`Payment Failed: ${errorDescription}`);
+      console.log("Sending car replacement request:", {
+        userId,
+        payload
+      });
+
+      const response = await axios.put(
+        `https://varahibackend.varahiselfdrivecars.com/api/users/replace-car/${userId}`,
+        payload
+      );
+
+      if (response.data.message) {
+        toast.success(response.data.message);
+        setShowReplaceModal(false);
+        fetchBookings();
+        
+        setReplaceData({
+          newCarId: "",
+          transactionId: "",
+          amount: "",
+          staffRefund: "",
+          requirePayment: false
+        });
+      }
+    } catch (error) {
+      console.error("Error replacing car:", error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || "Failed to replace car";
+      toast.error(`Error: ${errorMessage}`);
+    } finally {
+      setIsReplacingCar(false);
+    }
+  };
+
+  const initReplaceCarPayment = async () => {
+    try {
+      if (!selectedBooking) {
+        toast.error("No booking selected");
+        return;
+      }
+
+      if (!replaceData.amount || parseFloat(replaceData.amount) <= 0) {
+        toast.error("Please enter a valid amount for payment");
+        return;
+      }
+
+      setIsProcessingPayment(true);
+      toast.info("Initializing payment gateway...", { autoClose: 1500 });
+
+      const isScriptLoaded = await loadRazorpayScript('https://checkout.razorpay.com/v1/checkout.js');
+      
+      if (!isScriptLoaded) {
+        toast.error("Payment gateway failed to load. Please check your connection and try again.");
+        setIsProcessingPayment(false);
+        return;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      if (!window.Razorpay) {
+        toast.error("Payment service is temporarily unavailable. Please refresh the page and try again.");
+        setIsProcessingPayment(false);
+        return;
+      }
+
+      const bookingId = selectedBooking._id;
+      const amountInPaise = Math.round(parseFloat(replaceData.amount) * 100);
+      const currentDate = new Date().toLocaleDateString('en-IN');
+
+      const options = {
+        key: RAZORPAY_KEY_ID,
+        amount: amountInPaise,
+        currency: "INR",
+        name: "Car Replacement Payment",
+        description: `Car Replacement - Booking ${bookingId.slice(-6)}`,
+        handler: async (response) => {
+          setReplaceData(prev => ({
+            ...prev,
+            transactionId: response.razorpay_payment_id
+          }));
+          
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          await handleReplaceCar();
+        },
+        prefill: {
+          name: selectedBooking.userId?.name || "",
+          email: selectedBooking.userId?.email || "",
+          contact: selectedBooking.userId?.mobile || ""
+        },
+        notes: {
+          bookingId: bookingId,
+          purpose: "car_replacement",
+          date: currentDate
+        },
+        theme: {
+          color: "#3399cc"
+        },
+        modal: {
+          ondismiss: function() {
+            console.log('Checkout form closed by user');
+            toast.info("Payment was cancelled");
+            setIsProcessingPayment(false);
+          }
+        }
+      };
+
+      const razorpayInstance = new window.Razorpay(options);
+      
+      razorpayInstance.on('payment.failed', function (response) {
+        console.error('Payment failed:', response.error);
+        const errorDescription = response.error?.description || response.error?.error?.description || 'Payment failed';
+        toast.error(`Payment Failed: ${errorDescription}`);
+        setIsProcessingPayment(false);
+      });
+
+      razorpayInstance.open();
+      
+    } catch (error) {
+      console.error("Error initializing Razorpay for replacement:", error);
+      toast.error("Failed to initialize payment. Please try again.");
       setIsProcessingPayment(false);
-    });
-
-    razorpayInstance.open();
-    
-  } catch (error) {
-    console.error("Error initializing Razorpay for replacement:", error);
-    toast.error("Failed to initialize payment. Please try again.");
-    setIsProcessingPayment(false);
-  }
-};
-
+    }
+  };
 
   const handleViewDetails = (bookingId) => {
     fetchBookingDetails(bookingId);
@@ -575,10 +620,8 @@ const initReplaceCarPayment = async () => {
     try {
       const { _id, status, paymentStatus, editedAmount } = selectedBooking;
 
-      // Update booking status
       await axios.put(`https://varahibackend.varahiselfdrivecars.com/api/admin/statusbookings/${_id}`, { status });
 
-      // Update payment status and amount
       await axios.put(`https://varahibackend.varahiselfdrivecars.com/api/admin/payment-status/${_id}`, {
         paymentStatus,
         amount: editedAmount
@@ -627,9 +670,17 @@ const initReplaceCarPayment = async () => {
     }
   };
 
+  // NEW: Get extension badge
+  const getExtensionBadge = (extensions) => {
+    if (!extensions || extensions.length === 0) {
+      return <Badge bg="secondary">No Extensions</Badge>;
+    }
+    return <Badge bg="info">{extensions.length} Extension{extensions.length > 1 ? 's' : ''}</Badge>;
+  };
+
   const getReplacementBadge = (booking) => {
     const hasReplacement = booking?.carReplacementHistory && 
-      booking.carReplacementHistory.newCarId;
+      booking.carReplacementHistory.length > 0;
 
     if (hasReplacement) {
       return (
@@ -643,7 +694,7 @@ const initReplaceCarPayment = async () => {
 
   const getReplacementStatus = (booking) => {
     const hasReplacement = booking?.carReplacementHistory && 
-      booking.carReplacementHistory.newCarId;
+      booking.carReplacementHistory.length > 0;
 
     if (hasReplacement) {
       return (
@@ -665,25 +716,21 @@ const initReplaceCarPayment = async () => {
   const totalPages = Math.ceil(filteredBookings.length / bookingsPerPage);
 
   const renderPagination = () => {
-    if (!totalPages || totalPages < 1) return null; // prevent rendering if totalPages is invalid
+    if (!totalPages || totalPages < 1) return null;
 
     const pages = [];
     const pageSet = new Set();
 
-    // Always add first page
     pageSet.add(1);
 
-    // Only add last page if more than 1
     if (totalPages > 1) {
       pageSet.add(totalPages);
     }
 
-    // Add current page and its neighbors
     if (currentPage > 1) pageSet.add(currentPage - 1);
     pageSet.add(currentPage);
     if (currentPage < totalPages) pageSet.add(currentPage + 1);
 
-    // Convert to sorted array
     const sortedPages = Array.from(pageSet).sort((a, b) => a - b);
 
     let lastPage = 0;
@@ -726,26 +773,12 @@ const initReplaceCarPayment = async () => {
 
   const handleDownloadExcel = async () => {
     try {
-      toast.info('Preparing detailed booking report...', { autoClose: 2000 });
+      setIsDownloading(true);
+      toast.info('Preparing filtered booking report...', { autoClose: 2000 });
 
-      // Fetch detailed data for all bookings
-      const detailedBookings = await Promise.all(
-        bookings.map(async (booking) => {
-          try {
-            const response = await axios.get(`https://varahibackend.varahiselfdrivecars.com/api/staff/singlebooking/${booking._id}`);
-            return {
-              ...response.data.booking,
-              delayedPaymentProof: booking.delayedPaymentProof // Include from all bookings API
-            };
-          } catch (error) {
-            console.error(`Error fetching details for booking ${booking._id}:`, error);
-            return booking; // Fallback to basic booking data if detailed fetch fails
-          }
-        })
-      );
-
-      // Prepare Excel data with car replacement info
-      const data = detailedBookings.map(booking => ({
+      // IMPORTANT FIX: Use filteredBookings instead of all bookings
+      // This ensures only the filtered data (based on date filters) is exported
+      const dataToExport = filteredBookings.map(booking => ({
         'Booking ID': booking._id || '-',
         'User Name': booking.userId?.name || '-',
         'User Email': booking.userId?.email || '-',
@@ -753,16 +786,40 @@ const initReplaceCarPayment = async () => {
         'Car Name': booking.car?.carName || '-',
         'Car Model': booking.car?.model || '-',
         'Vehicle Number': booking.car?.vehicleNumber || '-',
-        'Car Replacement': booking.carReplacementHistory ? 'Yes' : 'No',
-        'Original Car': booking.carReplacementHistory?.oldCarId?.carName || '-',
-        'Original Car Model': booking.carReplacementHistory?.oldCarId?.model || '-',
-        'Replacement Car': booking.carReplacementHistory?.newCarId?.carName || '-',
-        'Replacement Car Model': booking.carReplacementHistory?.newCarId?.model || '-',
-        'Replaced At': booking.carReplacementHistory?.replacedAt ? new Date(booking.carReplacementHistory.replacedAt).toLocaleString() : '-',
-        'Payment Adjustment': booking.carReplacementHistory?.paymentAdjustment || 0,
-        'Staff Payment Status': booking.carReplacementHistory?.staffPaymentStatus || '-',
-        'Rental Start': booking.rentalStartDate ? new Date(booking.rentalStartDate).toLocaleDateString() : '-',
-        'Rental End': booking.rentalEndDate ? new Date(booking.rentalEndDate).toLocaleDateString() : '-',
+        'Car Replacement': booking.carReplacementHistory && booking.carReplacementHistory.length > 0 ? 'Yes' : 'No',
+        'Original Car': booking.carReplacementHistory && booking.carReplacementHistory.length > 0 
+          ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.oldCarId?.carName || '-') 
+          : '-',
+        'Original Car Model': booking.carReplacementHistory && booking.carReplacementHistory.length > 0 
+          ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.oldCarId?.model || '-') 
+          : '-',
+        'Replacement Car': booking.carReplacementHistory && booking.carReplacementHistory.length > 0 
+          ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.newCarId?.carName || '-') 
+          : '-',
+        'Replacement Car Model': booking.carReplacementHistory && booking.carReplacementHistory.length > 0 
+          ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.newCarId?.model || '-') 
+          : '-',
+        'Replaced At': booking.carReplacementHistory && booking.carReplacementHistory.length > 0 
+          ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.replacedAt 
+            ? new Date(booking.carReplacementHistory[booking.carReplacementHistory.length - 1].replacedAt).toLocaleString() 
+            : '-')
+          : '-',
+        'Payment Adjustment': booking.carReplacementHistory && booking.carReplacementHistory.length > 0 
+          ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.paymentAdjustment || 0) 
+          : 0,
+        'Staff Payment Status': booking.carReplacementHistory && booking.carReplacementHistory.length > 0 
+          ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.staffPaymentStatus || '-') 
+          : '-',
+        // NEW: Extension fields in Excel
+        'Extension Count': booking.extensions?.length || 0,
+        'Extension Details': booking.extensions && booking.extensions.length > 0 
+          ? booking.extensions.map(ext => 
+              `Date: ${ext.extendDeliveryDate || '-'}, Time: ${ext.extendDeliveryTime || '-'}, Hours: ${ext.hours || '-'}, Amount: ₹${ext.amount || 0}`
+            ).join('; ')
+          : 'No extensions',
+        'Total Extension Amount': booking.extensions?.reduce((sum, ext) => sum + (ext.amount || 0), 0) || 0,
+        'Rental Start Date': booking.rentalStartDate ? new Date(booking.rentalStartDate).toLocaleDateString() : '-',
+        'Rental End Date': booking.rentalEndDate ? new Date(booking.rentalEndDate).toLocaleDateString() : '-',
         'Timings': `${booking.from || '-'} - ${booking.to || '-'}`,
         'Total Price': booking.totalPrice || 0,
         'Pickup Location': booking.pickupLocation || '-',
@@ -773,8 +830,10 @@ const initReplaceCarPayment = async () => {
         'Deposit Amount': booking.deposit || 0,
         'Aadhar Status': booking.userId?.documents?.aadharCard?.status || 'Not uploaded',
         'License Status': booking.userId?.documents?.drivingLicense?.status || 'Not uploaded',
-        'Booking Created': booking.createdAt ? new Date(booking.createdAt).toLocaleString() : '-',
-        'Last Updated': booking.updatedAt ? new Date(booking.updatedAt).toLocaleString() : '-',
+        'Booking Created Date': booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : '-',
+        'Booking Created Time': booking.createdAt ? new Date(booking.createdAt).toLocaleTimeString() : '-',
+        'Last Updated Date': booking.updatedAt ? new Date(booking.updatedAt).toLocaleDateString() : '-',
+        'Last Updated Time': booking.updatedAt ? new Date(booking.updatedAt).toLocaleTimeString() : '-',
         'Deposit Proof Count': booking.depositeProof?.length || 0,
         'Car Return Images Count': booking.carReturnImages?.length || 0,
         'Car Pickup Images Count': booking.carImagesBeforePickup?.length || 0,
@@ -782,11 +841,19 @@ const initReplaceCarPayment = async () => {
         'Final Booking PDF': booking.finalBookingPDF ? 'Available' : 'Not available',
         'Deposit PDF': booking.depositPDF ? 'Available' : 'Not available',
         'Advance Paid Status': booking.advancePaidStatus ? 'Yes' : 'No',
-        'Transaction ID': booking.transactionId || '-'
+        'Transaction ID': booking.transactionId || '-',
+        'Customer Took Car': booking.customerTookCar ? 'Yes' : 'No',
+        'Return Details Count': booking.returnDetails?.length || 0
       }));
 
+      if (dataToExport.length === 0) {
+        toast.warning('No data to export based on current filters!');
+        setIsDownloading(false);
+        return;
+      }
+
       // Create worksheet and workbook
-      const ws = XLSX.utils.json_to_sheet(data);
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Bookings");
 
@@ -807,8 +874,11 @@ const initReplaceCarPayment = async () => {
         { wch: 20 }, // Replaced At
         { wch: 18 }, // Payment Adjustment
         { wch: 18 }, // Staff Payment Status
-        { wch: 15 }, // Rental Start
-        { wch: 15 }, // Rental End
+        { wch: 15 }, // Extension Count
+        { wch: 50 }, // Extension Details
+        { wch: 18 }, // Total Extension Amount
+        { wch: 15 }, // Rental Start Date
+        { wch: 15 }, // Rental End Date
         { wch: 20 }, // Timings
         { wch: 12 }, // Total Price
         { wch: 20 }, // Pickup Location
@@ -819,8 +889,10 @@ const initReplaceCarPayment = async () => {
         { wch: 15 }, // Deposit Amount
         { wch: 15 }, // Aadhar Status
         { wch: 15 }, // License Status
-        { wch: 20 }, // Booking Created
-        { wch: 20 }, // Last Updated
+        { wch: 18 }, // Booking Created Date
+        { wch: 18 }, // Booking Created Time
+        { wch: 18 }, // Last Updated Date
+        { wch: 18 }, // Last Updated Time
         { wch: 20 }, // Deposit Proof Count
         { wch: 20 }, // Car Return Images Count
         { wch: 20 }, // Car Pickup Images Count
@@ -828,36 +900,60 @@ const initReplaceCarPayment = async () => {
         { wch: 20 }, // Final Booking PDF
         { wch: 15 }, // Deposit PDF
         { wch: 15 }, // Advance Paid Status
-        { wch: 25 }  // Transaction ID
+        { wch: 25 }, // Transaction ID
+        { wch: 15 }, // Customer Took Car
+        { wch: 15 }  // Return Details Count
       ];
       ws['!cols'] = wscols;
 
-      // Add header style
-      const headerStyle = {
-        font: { bold: true, color: { rgb: "FFFFFF" } },
-        fill: { fgColor: { rgb: "4F81BD" } },
-        alignment: { horizontal: "center" }
-      };
-
-      const range = XLSX.utils.decode_range(ws['!ref']);
-      for (let C = range.s.c; C <= range.e.c; ++C) {
-        const cellAddress = XLSX.utils.encode_cell({ r: 0, c: C });
-        if (!ws[cellAddress]) continue;
-        ws[cellAddress].s = headerStyle;
+      // Add filter info in filename
+      const dateStr = new Date().toISOString().split('T')[0];
+      let filename = `bookings_${dateStr}`;
+      
+      if (startDateFilter || endDateFilter || createdDateFilter) {
+        filename += '_filtered';
+        if (startDateFilter) filename += `_start_${startDateFilter}`;
+        if (endDateFilter) filename += `_end_${endDateFilter}`;
+        if (createdDateFilter) filename += `_created_${createdDateFilter}`;
       }
+      
+      filename += '.xlsx';
 
-      // Export the file
-      XLSX.writeFile(wb, "detailed_bookings_report.xlsx");
-      toast.success('Excel report downloaded successfully!', { autoClose: 2000 });
+      // Force download using different method
+      setTimeout(() => {
+        try {
+          XLSX.writeFile(wb, filename);
+          toast.success(`${dataToExport.length} bookings exported successfully!`, { autoClose: 2000 });
+        } catch (writeError) {
+          console.error('Error writing file:', writeError);
+          // Fallback method
+          const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
+          const buf = new ArrayBuffer(wbout.length);
+          const view = new Uint8Array(buf);
+          for (let i = 0; i < wbout.length; i++) view[i] = wbout.charCodeAt(i) & 0xFF;
+          const blob = new Blob([buf], { type: 'application/octet-stream' });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+          toast.success(`${dataToExport.length} bookings exported successfully!`, { autoClose: 2000 });
+        }
+      }, 100);
 
     } catch (error) {
       console.error('Error generating Excel report:', error);
-      toast.error('Failed to generate Excel report', { autoClose: 2000 });
+      toast.error('Failed to generate Excel report: ' + error.message, { autoClose: 2000 });
+    } finally {
+      setIsDownloading(false);
     }
   };
 
   const renderCarInfo = (booking) => {
-    if (booking.carReplacementHistory) {
+    if (booking.carReplacementHistory && booking.carReplacementHistory.length > 0) {
       return (
         <>
           <div>
@@ -871,7 +967,7 @@ const initReplaceCarPayment = async () => {
   };
 
   const renderCarModel = (booking) => {
-    if (booking.carReplacementHistory) {
+    if (booking.carReplacementHistory && booking.carReplacementHistory.length > 0) {
       return (
         <>
           <div>{booking.car?.model || 'N/A'}</div>
@@ -881,27 +977,59 @@ const initReplaceCarPayment = async () => {
     return <div>{booking.car?.model || 'N/A'}</div>;
   };
 
+  // NEW: Render extensions in table
+  const renderExtensions = (booking) => {
+    const extensions = booking.extensions || [];
+    if (extensions.length === 0) {
+      return <Badge bg="secondary">No Extensions</Badge>;
+    }
+    
+    return (
+      <div>
+        <Badge bg="info">{extensions.length} Extension{extensions.length > 1 ? 's' : ''}</Badge>
+        <Button 
+          variant="link" 
+          size="sm" 
+          className="p-0 ms-2"
+          onClick={() => handleViewExtensions(booking)}
+        >
+          View Details
+        </Button>
+      </div>
+    );
+  };
+
   return (
     <div className="container-fluid mt-4">
       <ToastContainer position="top-right" autoClose={2000} />
-      <div className="d-flex justify-content-start align-items-center">
-        <h2 className="mb-4">Bookings Management</h2>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h2>Bookings Management</h2>
+        <Badge bg="info" className="p-2">
+          Showing {filteredBookings.length} of {bookings.length} bookings
+        </Badge>
       </div>
 
+      {/* Filter Section */}
       <Row className="mb-3">
-        <Col md={3}>
+        {/* 1. Search Filter Dropdown */}
+        <Col md={2}>
           <Form.Select value={filterField} onChange={(e) => setFilterField(e.target.value)}>
-            <option value="id">Search by Booking Id</option>
-            <option value="name">Search by Name</option>
-            <option value="email">Search by Email</option>
-            <option value="pickuplocation">Search by Pickup Location</option>
-            <option value="status">Search by Status</option>
-            <option value="paymentstatus">Search by Payment Status</option>
-            <option value="rentaldate">Search by Rental Date</option>
-            <option value="replaced">Search Car Replacements</option>
+            <option value="id">Booking Id</option>
+            <option value="name">Name</option>
+            <option value="email">Email</option>
+            <option value="pickuplocation">Pickup Location</option>
+            <option value="status">Status</option>
+            <option value="paymentstatus">Payment Status</option>
+            <option value="rentalstartdate">Rental Start Date</option>
+            <option value="rentalenddate">Rental End Date</option>
+            <option value="createdat">Booking Created Date</option>
+            <option value="replaced">Car Replacements</option>
+            <option value="extensions">Extensions</option> {/* NEW: Extensions filter */}
           </Form.Select>
         </Col>
-        <Col md={6}>
+        
+        {/* 2. Search Input Field */}
+        <Col md={3}>
           <InputGroup>
             <Form.Control
               type="text"
@@ -911,19 +1039,92 @@ const initReplaceCarPayment = async () => {
                     : filterField === 'pickuplocation' ? 'Pickup Location'
                       : filterField === 'status' ? 'Status'
                         : filterField === 'paymentstatus' ? 'Payment Status'
-                          : filterField === 'rentaldate' ? 'Rental Date'
-                            : filterField === 'replaced' ? 'Car Replacements (Yes/No)'
-                              : ''}`}
+                          : filterField === 'rentalstartdate' ? 'Rental Start Date'
+                            : filterField === 'rentalenddate' ? 'Rental End Date'
+                              : filterField === 'createdat' ? 'Booking Created Date'
+                                : filterField === 'replaced' ? 'Car Replacements (Yes/No)'
+                                  : filterField === 'extensions' ? 'Extended/Not Extended'
+                                  : ''}`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </InputGroup>
         </Col>
-        <Col md={3} className="text-end">
-          <Button variant="success" onClick={handleDownloadExcel}><i className="fas fa-file-excel me-2"></i>Export to Excel</Button>
+        
+        {/* 3. Rental Start Date Filter */}
+        <Col md={2}>
+          <Form.Control
+            type="date"
+            placeholder="Rental Start Date"
+            value={startDateFilter}
+            onChange={(e) => setStartDateFilter(e.target.value)}
+          />
+          <Form.Text className="text-muted">Rental Start Date</Form.Text>
+        </Col>
+        
+        {/* 4. Rental End Date Filter */}
+        <Col md={2}>
+          <Form.Control
+            type="date"
+            placeholder="Rental End Date"
+            value={endDateFilter}
+            onChange={(e) => setEndDateFilter(e.target.value)}
+          />
+          <Form.Text className="text-muted">Rental End Date</Form.Text>
+        </Col>
+        
+        {/* 5. Booking Created Date Filter */}
+        <Col md={2}>
+          <Form.Control
+            type="date"
+            placeholder="Booking Created Date"
+            value={createdDateFilter}
+            onChange={(e) => setCreatedDateFilter(e.target.value)}
+          />
+          <Form.Text className="text-muted">Booking Created Date</Form.Text>
+        </Col>
+        
+        {/* 6. Excel Export Button */}
+        <Col md={1} className="text-end">
+          <Button 
+            variant="success" 
+            onClick={handleDownloadExcel}
+            disabled={isDownloading || filteredBookings.length === 0}
+          >
+            {isDownloading ? (
+              <>
+                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                Exporting...
+              </>
+            ) : (
+              <>
+                <i className="fas fa-file-excel me-2"></i>Excel
+              </>
+            )}
+          </Button>
         </Col>
       </Row>
 
+      {/* Clear Filters Button */}
+      <Row className="mb-3">
+        <Col md={12}>
+          <Button 
+            variant="secondary" 
+            size="sm" 
+            onClick={() => {
+              setStartDateFilter("");      // Clear Rental Start Date filter
+              setEndDateFilter("");        // Clear Rental End Date filter
+              setCreatedDateFilter("");    // Clear Booking Created Date filter
+              setSearchQuery("");          // Clear search query
+              setFilterField("name");      // Reset filter field to default
+            }}
+          >
+            Clear All Filters
+          </Button>
+        </Col>
+      </Row>
+
+      {/* Table Section */}
       <div className="table-responsive">
         <Table bordered hover responsive>
           <thead>
@@ -935,8 +1136,10 @@ const initReplaceCarPayment = async () => {
               <th>Car</th>
               <th>Model</th>
               <th>Replaced</th>
+              <th>Extensions</th> {/* NEW: Extensions column */}
               <th>Rental Start Date</th>
               <th>Rental End Date</th>
+              <th>Booking Created Date</th>
               <th>Timings</th>
               <th>Total Price</th>
               <th>Pickup Location</th>
@@ -951,16 +1154,18 @@ const initReplaceCarPayment = async () => {
           <tbody>
             {currentBookings.length > 0 ? (
               currentBookings.map((booking, index) => (
-                <tr key={booking._id} className={booking.carReplacementHistory?.newCarId ? 'table-info' : ''}>
+                <tr key={booking._id} className={booking.carReplacementHistory && booking.carReplacementHistory.length > 0 ? 'table-info' : ''}>
                   <td className="text-center">{(currentPage - 1) * bookingsPerPage + index + 1}</td>
-                  <td>{booking._id.slice(-6) || 'N/A'}</td>
+                  <td>{booking._id?.slice(-6) || 'N/A'}</td>
                   <td>{booking.userId?.name || 'N/A'}</td>
                   <td>{booking.userId?.email || 'N/A'}</td>
                   <td>{renderCarInfo(booking)}</td>
                   <td>{renderCarModel(booking)}</td>
                   <td>{getReplacementStatus(booking)}</td>
+                  <td>{renderExtensions(booking)}</td> {/* NEW: Extensions cell */}
                   <td>{booking.rentalStartDate ? new Date(booking.rentalStartDate).toLocaleDateString() : 'N/A'}</td>
                   <td>{booking.rentalEndDate ? new Date(booking.rentalEndDate).toLocaleDateString() : 'N/A'}</td>
+                  <td>{booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : 'N/A'}</td>
                   <td>{booking.from || 'N/A'} - {booking.to || 'N/A'}</td>
                   <td>₹{booking.totalPrice || '0'}</td>
                   <td>{booking.pickupLocation || 'N/A'}</td>
@@ -974,7 +1179,21 @@ const initReplaceCarPayment = async () => {
                       {booking.paymentStatus || 'N/A'}
                     </Badge>
                   </td>
-                  <td>{booking.otp || 'N/A'}</td>
+                  <td>
+                    {booking.otp || 'N/A'}
+                    {/* NEW OTP Generate Button - Only shows if OTP is empty or missing */}
+                    {!booking.otp && (
+                      <Button 
+                        variant="outline-success" 
+                        size="sm" 
+                        className="ms-1"
+                        onClick={() => handleGenerateOTP(booking._id)}
+                        title="Generate OTP"
+                      >
+                        <i className="fas fa-key"></i>
+                      </Button>
+                    )}
+                  </td>
                   <td>{booking.returnOTP || 'N/A'}</td>
                   <td className="text-center align-middle">
                     <Button variant="outline-warning" size="sm" className="me-1 mb-1 mt-1" onClick={() => handleEdit(booking)}>
@@ -999,7 +1218,7 @@ const initReplaceCarPayment = async () => {
               ))
             ) : (
               <tr>
-                <td colSpan="18" className="text-center">No bookings found</td>
+                <td colSpan="20" className="text-center">No bookings found</td> {/* Updated colSpan */}
               </tr>
             )}
           </tbody>
@@ -1069,6 +1288,11 @@ const initReplaceCarPayment = async () => {
                 <p><strong>Booking ID:</strong> {selectedBooking._id}</p>
                 <p><strong>User:</strong> {selectedBooking.userId?.name} ({selectedBooking.userId?.email})</p>
                 <p><strong>Current End:</strong> {new Date(selectedBooking.rentalEndDate).toLocaleDateString()} {selectedBooking.to}</p>
+                {selectedBooking.extensions && selectedBooking.extensions.length > 0 && (
+                  <div className="alert alert-info">
+                    <strong>Previous Extensions:</strong> {selectedBooking.extensions.length}
+                  </div>
+                )}
               </div>
 
               <Form.Group className="mb-3">
@@ -1165,194 +1389,268 @@ const initReplaceCarPayment = async () => {
       </Modal>
 
       {/* Replace Car Modal */}
-     {/* Replace Car Modal */}
-<Modal show={showReplaceModal} onHide={() => setShowReplaceModal(false)} size="lg">
-  <Modal.Header closeButton>
-    <Modal.Title>Replace Car in Booking</Modal.Title>
-  </Modal.Header>
-  <Modal.Body>
-    {selectedBooking && (
-      <Form>
-        <div className="mb-3">
-          <p><strong>Booking ID:</strong> {selectedBooking._id}</p>
-          <p><strong>User:</strong> {selectedBooking.userId?.name} ({selectedBooking.userId?.email})</p>
-          <p><strong>Current Car:</strong> {selectedBooking.car?.carName} ({selectedBooking.car?.model})</p>
-          <p><strong>Vehicle Number:</strong> {selectedBooking.car?.vehicleNumber}</p>
-        </div>
+      <Modal show={showReplaceModal} onHide={() => setShowReplaceModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Replace Car in Booking</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedBooking && (
+            <Form>
+              <div className="mb-3">
+                <p><strong>Booking ID:</strong> {selectedBooking._id}</p>
+                <p><strong>User:</strong> {selectedBooking.userId?.name} ({selectedBooking.userId?.email})</p>
+                <p><strong>Current Car:</strong> {selectedBooking.car?.carName} ({selectedBooking.car?.model})</p>
+                <p><strong>Vehicle Number:</strong> {selectedBooking.car?.vehicleNumber}</p>
+              </div>
 
-        <Form.Group className="mb-3">
-          <Form.Label>Select New Car</Form.Label>
-          <Form.Select
-            value={replaceData.newCarId}
-            onChange={(e) => setReplaceData({ ...replaceData, newCarId: e.target.value })}
-            required
-          >
-            <option value="">Select a car</option>
-            {cars.map((car) => (
-              <option key={car._id} value={car._id}>
-                {car.carName} - {car.model} - {car.vehicleNumber} - ₹{car.pricePerDay}/day
-              </option>
-            ))}
-          </Form.Select>
-        </Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Label>Select New Car</Form.Label>
+                <Form.Select
+                  value={replaceData.newCarId}
+                  onChange={(e) => setReplaceData({ ...replaceData, newCarId: e.target.value })}
+                  required
+                >
+                  <option value="">Select a car</option>
+                  {cars.map((car) => (
+                    <option key={car._id} value={car._id}>
+                      {car.carName} - {car.model} - {car.vehicleNumber} - ₹{car.pricePerDay}/day
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
 
-        <Form.Group className="mb-3">
-          <Form.Label>Staff Refund Amount (Optional)</Form.Label>
-          <Form.Control
-            type="number"
-            placeholder="Enter staff refund amount"
-            value={replaceData.staffRefund}
-            onChange={(e) => setReplaceData({ 
-              ...replaceData, 
-              staffRefund: e.target.value,
-              // If staff refund provided, disable payment option
-              requirePayment: e.target.value ? false : replaceData.requirePayment
-            })}
-            min="0"
-            step="0.01"
-          />
-          <Form.Text className="text-muted">
-            If staff needs to be refunded (no Razorpay payment required)
-          </Form.Text>
-        </Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Label>Staff Refund Amount (Optional)</Form.Label>
+                <Form.Control
+                  type="number"
+                  placeholder="Enter staff refund amount"
+                  value={replaceData.staffRefund}
+                  onChange={(e) => setReplaceData({ 
+                    ...replaceData, 
+                    staffRefund: e.target.value,
+                    requirePayment: e.target.value ? false : replaceData.requirePayment
+                  })}
+                  min="0"
+                  step="0.01"
+                />
+                <Form.Text className="text-muted">
+                  If staff needs to be refunded (no Razorpay payment required)
+                </Form.Text>
+              </Form.Group>
 
-        {/* Payment section - only show if no staff refund */}
-        {!replaceData.staffRefund && (
-          <>
-            <Form.Check 
-              type="checkbox"
-              label="Require Customer Payment"
-              checked={replaceData.requirePayment}
-              onChange={(e) => setReplaceData({ ...replaceData, requirePayment: e.target.checked })}
-              className="mb-3"
-            />
+              {!replaceData.staffRefund && (
+                <>
+                  <Form.Check 
+                    type="checkbox"
+                    label="Require Customer Payment"
+                    checked={replaceData.requirePayment}
+                    onChange={(e) => setReplaceData({ ...replaceData, requirePayment: e.target.checked })}
+                    className="mb-3"
+                  />
 
-            {replaceData.requirePayment && (
-              <>
-                <Row className="mb-3">
-                  <Col md={6}>
-                    <Form.Group>
-                      <Form.Label>Payment Amount (₹)</Form.Label>
-                      <Form.Control
-                        type="number"
-                        placeholder="Enter amount"
-                        value={replaceData.amount}
-                        onChange={(e) => setReplaceData({ ...replaceData, amount: e.target.value })}
-                        required={replaceData.requirePayment}
-                        min="1"
-                        step="0.01"
-                      />
-                    </Form.Group>
-                  </Col>
-                  <Col md={6}>
-                    <Form.Group>
-                      <Form.Label>Transaction ID</Form.Label>
-                      <Form.Control
-                        type="text"
-                        placeholder="Will be filled by Razorpay"
-                        value={replaceData.transactionId}
-                        readOnly
-                        className="bg-light"
-                      />
-                      <Form.Text className="text-muted">
-                        Will be auto-filled after payment
-                      </Form.Text>
-                    </Form.Group>
-                  </Col>
-                </Row>
-                
-                <div className="alert alert-info">
-                  <small>
-                    <i className="fas fa-info-circle me-2"></i>
-                    <strong>Note:</strong> Click "Pay & Replace Car" to open Razorpay payment gateway. 
-                    Transaction ID will be automatically captured.
-                  </small>
+                  {replaceData.requirePayment && (
+                    <>
+                      <Row className="mb-3">
+                        <Col md={6}>
+                          <Form.Group>
+                            <Form.Label>Payment Amount (₹)</Form.Label>
+                            <Form.Control
+                              type="number"
+                              placeholder="Enter amount"
+                              value={replaceData.amount}
+                              onChange={(e) => setReplaceData({ ...replaceData, amount: e.target.value })}
+                              required={replaceData.requirePayment}
+                              min="1"
+                              step="0.01"
+                            />
+                          </Form.Group>
+                        </Col>
+                        <Col md={6}>
+                          <Form.Group>
+                            <Form.Label>Transaction ID</Form.Label>
+                            <Form.Control
+                              type="text"
+                              placeholder="Will be filled by Razorpay"
+                              value={replaceData.transactionId}
+                              readOnly
+                              className="bg-light"
+                            />
+                            <Form.Text className="text-muted">
+                              Will be auto-filled after payment
+                            </Form.Text>
+                          </Form.Group>
+                        </Col>
+                      </Row>
+                      
+                      <div className="alert alert-info">
+                        <small>
+                          <i className="fas fa-info-circle me-2"></i>
+                          <strong>Note:</strong> Click "Pay & Replace Car" to open Razorpay payment gateway. 
+                          Transaction ID will be automatically captured.
+                        </small>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+
+              <div className="alert alert-warning">
+                <small>
+                  <i className="fas fa-exclamation-triangle me-2"></i>
+                  <strong>Important:</strong> 
+                  <ul className="mb-0 mt-1">
+                    <li>If staff refund is entered, no Razorpay payment is required</li>
+                    <li>If no staff refund and payment is required, Razorpay will open</li>
+                    <li>New car must be available during the booking period</li>
+                  </ul>
+                </small>
+              </div>
+            </Form>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowReplaceModal(false)} disabled={isReplacingCar || isProcessingPayment}>
+            Cancel
+          </Button>
+          
+          {replaceData.staffRefund ? (
+            <Button 
+              variant="warning" 
+              onClick={handleReplaceCar}
+              disabled={isReplacingCar || !replaceData.newCarId}
+            >
+              {isReplacingCar ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                  Replacing Car...
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-exchange-alt me-2"></i>
+                  Replace Car (Staff Refund)
+                </>
+              )}
+            </Button>
+          ) : (
+            !replaceData.requirePayment ? (
+              <Button 
+                variant="warning" 
+                onClick={handleReplaceCar}
+                disabled={isReplacingCar || !replaceData.newCarId}
+              >
+                {isReplacingCar ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    Replacing Car...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-exchange-alt me-2"></i>
+                    Replace Car (No Payment)
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button 
+                variant="success" 
+                onClick={initReplaceCarPayment}
+                disabled={isProcessingPayment || !replaceData.newCarId || !replaceData.amount}
+              >
+                {isProcessingPayment ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    Processing Payment...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-credit-card me-2"></i>
+                    Pay & Replace Car
+                  </>
+                )}
+              </Button>
+            )
+          )}
+        </Modal.Footer>
+      </Modal>
+
+      {/* NEW: View Extensions Modal */}
+      <Modal show={showExtensionsModal} onHide={() => setShowExtensionsModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Booking Extensions</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedBooking && (
+            <>
+              <div className="mb-3">
+                <h6>Booking Information</h6>
+                <p><strong>Booking ID:</strong> {selectedBooking._id}</p>
+                <p><strong>User:</strong> {selectedBooking.userId?.name} ({selectedBooking.userId?.email})</p>
+                <p><strong>Current Car:</strong> {selectedBooking.car?.carName} ({selectedBooking.car?.model})</p>
+                <p><strong>Original Rental End:</strong> {new Date(selectedBooking.rentalEndDate).toLocaleDateString()} {selectedBooking.to}</p>
+              </div>
+              
+              <hr />
+              
+              <h6>Extension History</h6>
+              {selectedBooking.extensions && selectedBooking.extensions.length > 0 ? (
+                <Table striped bordered hover size="sm">
+                  <thead>
+                    <tr>
+                      <th>S.No</th>
+                      <th>Extended Date</th>
+                      <th>Extended Time</th>
+                      <th>Hours</th>
+                      <th>Amount (₹)</th>
+                      <th>Transaction ID</th>
+                      <th>Extended At</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedBooking.extensions.map((ext, index) => (
+                      <tr key={ext._id || index}>
+                        <td>{index + 1}</td>
+                        <td>{ext.extendDeliveryDate || '-'}</td>
+                        <td>{ext.extendDeliveryTime || '-'}</td>
+                        <td>{ext.hours || '-'}</td>
+                        <td>₹{ext.amount || 0}</td>
+                        <td>
+                          {ext.transactionId ? (
+                            <Badge bg="info" className="text-wrap">{ext.transactionId}</Badge>
+                          ) : '-'}
+                        </td>
+                        <td>{ext.extendedAt ? new Date(ext.extendedAt).toLocaleString() : '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="table-info">
+                      <td colSpan="4" className="text-end"><strong>Total:</strong></td>
+                      <td><strong>₹{selectedBooking.extensions.reduce((sum, ext) => sum + (ext.amount || 0), 0)}</strong></td>
+                      <td colSpan="2"></td>
+                    </tr>
+                  </tfoot>
+                </Table>
+              ) : (
+                <p className="text-muted">No extensions found for this booking.</p>
+              )}
+              
+              {selectedBooking.extensions && selectedBooking.extensions.length > 0 && (
+                <div className="alert alert-info mt-3">
+                  <i className="fas fa-info-circle me-2"></i>
+                  <strong>Total Extensions:</strong> {selectedBooking.extensions.length} | 
+                  <strong> Total Amount:</strong> ₹{selectedBooking.extensions.reduce((sum, ext) => sum + (ext.amount || 0), 0)}
                 </div>
-              </>
-            )}
-          </>
-        )}
+              )}
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowExtensionsModal(false)}>
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
-        <div className="alert alert-warning">
-          <small>
-            <i className="fas fa-exclamation-triangle me-2"></i>
-            <strong>Important:</strong> 
-            <ul className="mb-0 mt-1">
-              <li>If staff refund is entered, no Razorpay payment is required</li>
-              <li>If no staff refund and payment is required, Razorpay will open</li>
-              <li>New car must be available during the booking period</li>
-            </ul>
-          </small>
-        </div>
-      </Form>
-    )}
-  </Modal.Body>
-  <Modal.Footer>
-    <Button variant="secondary" onClick={() => setShowReplaceModal(false)} disabled={isReplacingCar || isProcessingPayment}>
-      Cancel
-    </Button>
-    
-    {/* If staff refund is provided, no Razorpay needed */}
-    {replaceData.staffRefund ? (
-      <Button 
-        variant="warning" 
-        onClick={handleReplaceCar}
-        disabled={isReplacingCar || !replaceData.newCarId}
-      >
-        {isReplacingCar ? (
-          <>
-            <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-            Replacing Car...
-          </>
-        ) : (
-          <>
-            <i className="fas fa-exchange-alt me-2"></i>
-            Replace Car (Staff Refund)
-          </>
-        )}
-      </Button>
-    ) : (
-      /* No staff refund - show conditional button */
-      !replaceData.requirePayment ? (
-        <Button 
-          variant="warning" 
-          onClick={handleReplaceCar}
-          disabled={isReplacingCar || !replaceData.newCarId}
-        >
-          {isReplacingCar ? (
-            <>
-              <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-              Replacing Car...
-            </>
-          ) : (
-            <>
-              <i className="fas fa-exchange-alt me-2"></i>
-              Replace Car (No Payment)
-            </>
-          )}
-        </Button>
-      ) : (
-        <Button 
-          variant="success" 
-          onClick={initReplaceCarPayment}
-          disabled={isProcessingPayment || !replaceData.newCarId || !replaceData.amount}
-        >
-          {isProcessingPayment ? (
-            <>
-              <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-              Processing Payment...
-            </>
-          ) : (
-            <>
-              <i className="fas fa-credit-card me-2"></i>
-              Pay & Replace Car
-            </>
-          )}
-        </Button>
-      )
-    )}
-  </Modal.Footer>
-</Modal>
       {/* Details Modal */}
       <Modal show={showDetailsModal} onHide={() => setShowDetailsModal(false)} size="xl" centered scrollable>
         <Modal.Header closeButton>
@@ -1483,12 +1781,65 @@ const initReplaceCarPayment = async () => {
                   </p>
                   <p><strong>Transaction ID:</strong> {bookingDetails.transactionId || 'N/A'}</p>
                   <p><strong>Advance Paid:</strong> {bookingDetails.advancePaidStatus ? 'Yes' : 'No'}</p>
-                  <p><strong>Created:</strong> {new Date(bookingDetails.createdAt).toLocaleString()}</p>
-                  <p><strong>Last Updated:</strong> {new Date(bookingDetails.updatedAt).toLocaleString()}</p>
+                  <p><strong>Created Date:</strong> {bookingDetails.createdAt ? new Date(bookingDetails.createdAt).toLocaleDateString() : 'N/A'}</p>
+                  <p><strong>Created Time:</strong> {bookingDetails.createdAt ? new Date(bookingDetails.createdAt).toLocaleTimeString() : 'N/A'}</p>
+                  <p><strong>Last Updated Date:</strong> {bookingDetails.updatedAt ? new Date(bookingDetails.updatedAt).toLocaleDateString() : 'N/A'}</p>
+                  <p><strong>Last Updated Time:</strong> {bookingDetails.updatedAt ? new Date(bookingDetails.updatedAt).toLocaleTimeString() : 'N/A'}</p>
                 </div>
 
+                {/* NEW: Extensions Section in Details Modal */}
+                {bookingDetails.extensions && bookingDetails.extensions.length > 0 && (
+                  <Card className="mb-4 border-info">
+                    <Card.Header className="bg-info text-white d-flex justify-content-between align-items-center">
+                      <div>
+                        <strong><i className="fas fa-clock me-2"></i>Extension History</strong>
+                      </div>
+                      <Badge bg="light" text="dark">{bookingDetails.extensions.length} Extension{bookingDetails.extensions.length > 1 ? 's' : ''}</Badge>
+                    </Card.Header>
+                    <Card.Body>
+                      <Table striped bordered hover size="sm">
+                        <thead>
+                          <tr>
+                            <th>S.No</th>
+                            <th>Extended Date</th>
+                            <th>Extended Time</th>
+                            <th>Hours</th>
+                            <th>Amount (₹)</th>
+                            <th>Transaction ID</th>
+                            <th>Extended At</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {bookingDetails.extensions.map((ext, index) => (
+                            <tr key={ext._id || index}>
+                              <td>{index + 1}</td>
+                              <td>{ext.extendDeliveryDate || '-'}</td>
+                              <td>{ext.extendDeliveryTime || '-'}</td>
+                              <td>{ext.hours || '-'}</td>
+                              <td>₹{ext.amount || 0}</td>
+                              <td>
+                                {ext.transactionId ? (
+                                  <Badge bg="info" className="text-wrap">{ext.transactionId}</Badge>
+                                ) : '-'}
+                              </td>
+                              <td>{ext.extendedAt ? new Date(ext.extendedAt).toLocaleString() : '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="table-info">
+                            <td colSpan="4" className="text-end"><strong>Total:</strong></td>
+                            <td><strong>₹{bookingDetails.extensions.reduce((sum, ext) => sum + (ext.amount || 0), 0)}</strong></td>
+                            <td colSpan="2"></td>
+                          </tr>
+                        </tfoot>
+                      </Table>
+                    </Card.Body>
+                  </Card>
+                )}
+
                 {/* Car Replacement History Section */}
-                {bookingDetails.carReplacementHistory && bookingDetails.carReplacementHistory.newCarId && (
+                {bookingDetails.carReplacementHistory && bookingDetails.carReplacementHistory.length > 0 && (
                   <Card className="mb-4 border-warning">
                     <Card.Header className="bg-warning text-dark d-flex justify-content-between align-items-center">
                       <div>
@@ -1513,18 +1864,18 @@ const initReplaceCarPayment = async () => {
                               <strong>Original Car (Assigned Initially)</strong>
                             </Card.Header>
                             <Card.Body>
-                              <p><strong>Name:</strong> {bookingDetails.carReplacementHistory.oldCarId?.carName || 'N/A'}</p>
-                              <p><strong>Model:</strong> {bookingDetails.carReplacementHistory.oldCarId?.model || 'N/A'}</p>
+                              <p><strong>Name:</strong> {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.oldCarId?.carName || 'N/A'}</p>
+                              <p><strong>Model:</strong> {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.oldCarId?.model || 'N/A'}</p>
                               <p><strong>Vehicle Number:</strong> {replacedCarDetails.oldCar?.vehicleNumber || 'N/A'}</p>
                               <p><strong>Year:</strong> {replacedCarDetails.oldCar?.year || 'N/A'}</p>
                               <p><strong>Type:</strong> {replacedCarDetails.oldCar?.type || 'N/A'}</p>
                               <p><strong>Fuel:</strong> {replacedCarDetails.oldCar?.fuel || 'N/A'}</p>
                               <p><strong>Seats:</strong> {replacedCarDetails.oldCar?.seats || 'N/A'}</p>
-                              {bookingDetails.carReplacementHistory.oldCarId?.carImage?.[0] && (
+                              {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.oldCarId?.carImage?.[0] && (
                                 <div className="mt-2">
                                   <p><strong>Car Image:</strong></p>
                                   <img
-                                    src={bookingDetails.carReplacementHistory.oldCarId.carImage[0]}
+                                    src={bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1].oldCarId.carImage[0]}
                                     alt="Original Car"
                                     className="img-thumbnail"
                                     style={{ maxHeight: '150px' }}
@@ -1540,18 +1891,18 @@ const initReplaceCarPayment = async () => {
                               <strong>Current Car (Replacement)</strong>
                             </Card.Header>
                             <Card.Body>
-                              <p><strong>Name:</strong> {bookingDetails.carReplacementHistory.newCarId?.carName || 'N/A'}</p>
-                              <p><strong>Model:</strong> {bookingDetails.carReplacementHistory.newCarId?.model || 'N/A'}</p>
+                              <p><strong>Name:</strong> {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.newCarId?.carName || 'N/A'}</p>
+                              <p><strong>Model:</strong> {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.newCarId?.model || 'N/A'}</p>
                               <p><strong>Vehicle Number:</strong> {replacedCarDetails.newCar?.vehicleNumber || 'N/A'}</p>
                               <p><strong>Year:</strong> {replacedCarDetails.newCar?.year || 'N/A'}</p>
                               <p><strong>Type:</strong> {replacedCarDetails.newCar?.type || 'N/A'}</p>
                               <p><strong>Fuel:</strong> {replacedCarDetails.newCar?.fuel || 'N/A'}</p>
                               <p><strong>Seats:</strong> {replacedCarDetails.newCar?.seats || 'N/A'}</p>
-                              {bookingDetails.carReplacementHistory.newCarId?.carImage?.[0] && (
+                              {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.newCarId?.carImage?.[0] && (
                                 <div className="mt-2">
                                   <p><strong>Car Image:</strong></p>
                                   <img
-                                    src={bookingDetails.carReplacementHistory.newCarId.carImage[0]}
+                                    src={bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1].newCarId.carImage[0]}
                                     alt="Replacement Car"
                                     className="img-thumbnail"
                                     style={{ maxHeight: '150px' }}
@@ -1569,25 +1920,27 @@ const initReplaceCarPayment = async () => {
                         <h6><i className="fas fa-cog me-2"></i>Replacement Details</h6>
                         <Row>
                           <Col md={6}>
-                            <p><strong>Replaced At:</strong> {new Date(bookingDetails.carReplacementHistory.replacedAt).toLocaleString()}</p>
-                            <p><strong>Payment Adjustment:</strong> ₹{bookingDetails.carReplacementHistory.paymentAdjustment || 0}</p>
+                            <p><strong>Replaced At:</strong> {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.replacedAt 
+                              ? new Date(bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1].replacedAt).toLocaleString() 
+                              : 'N/A'}</p>
+                            <p><strong>Payment Adjustment:</strong> ₹{bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.paymentAdjustment || 0}</p>
                             <p><strong>Extra Payment Required:</strong> 
-                              <Badge bg={bookingDetails.carReplacementHistory.extraPaymentRequired ? 'danger' : 'success'} className="ms-2">
-                                {bookingDetails.carReplacementHistory.extraPaymentRequired ? 'Yes' : 'No'}
+                              <Badge bg={bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.extraPaymentRequired ? 'danger' : 'success'} className="ms-2">
+                                {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.extraPaymentRequired ? 'Yes' : 'No'}
                               </Badge>
                             </p>
                           </Col>
                           <Col md={6}>
-                            <p><strong>Staff Payment Due:</strong> ₹{bookingDetails.carReplacementHistory.staffPaymentDue || 0}</p>
+                            <p><strong>Staff Payment Due:</strong> ₹{bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.staffPaymentDue || 0}</p>
                             <p><strong>Staff Payment Status:</strong>
-                              <Badge bg={bookingDetails.carReplacementHistory.staffPaymentStatus === 'paid' ? 'success' : 'warning'} className="ms-2">
-                                {bookingDetails.carReplacementHistory.staffPaymentStatus || 'Pending'}
+                              <Badge bg={bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.staffPaymentStatus === 'paid' ? 'success' : 'warning'} className="ms-2">
+                                {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.staffPaymentStatus || 'Pending'}
                               </Badge>
                             </p>
-                            <p><strong>Replacement Transaction ID:</strong> {bookingDetails.carReplacementHistory.transactionId || 'N/A'}</p>
+                            <p><strong>Replacement Transaction ID:</strong> {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.transactionId || 'N/A'}</p>
                             <p><strong>Payment Status:</strong>
-                              <Badge bg={bookingDetails.carReplacementHistory.paymentStatus === 'paid' ? 'success' : 'warning'} className="ms-2">
-                                {bookingDetails.carReplacementHistory.paymentStatus || 'Pending'}
+                              <Badge bg={bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.paymentStatus === 'paid' ? 'success' : 'warning'} className="ms-2">
+                                {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.paymentStatus || 'Pending'}
                               </Badge>
                             </p>
                           </Col>
@@ -1599,7 +1952,8 @@ const initReplaceCarPayment = async () => {
 
                 <h5 className="mt-4 text-primary">Rental Details</h5>
                 <div className="mb-3">
-                  <p><strong>Dates:</strong> {new Date(bookingDetails.rentalStartDate).toLocaleDateString()} to {new Date(bookingDetails.rentalEndDate).toLocaleDateString()}</p>
+                  <p><strong>Rental Start Date:</strong> {new Date(bookingDetails.rentalStartDate).toLocaleDateString()}</p>
+                  <p><strong>Rental End Date:</strong> {new Date(bookingDetails.rentalEndDate).toLocaleDateString()}</p>
                   <p><strong>Timings:</strong> {bookingDetails.from} - {bookingDetails.to}</p>
                   <p><strong>Total Price:</strong> ₹{bookingDetails.totalPrice}</p>
                   <p><strong>Pickup Location:</strong> {bookingDetails.pickupLocation}</p>
