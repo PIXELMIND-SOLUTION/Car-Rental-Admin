@@ -40,7 +40,7 @@ const Bookings = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showExtendModal, setShowExtendModal] = useState(false);
   const [showReplaceModal, setShowReplaceModal] = useState(false);
-  const [showExtensionsModal, setShowExtensionsModal] = useState(false); // NEW: Extensions modal
+  const [showExtensionsModal, setShowExtensionsModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [filterField, setFilterField] = useState("name");
   const [searchQuery, setSearchQuery] = useState("");
@@ -62,102 +62,46 @@ const Bookings = () => {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isReplacingCar, setIsReplacingCar] = useState(false);
   
+  // Pagination state from backend
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalBookings: 0,
+    limit: 10,
+    hasNextPage: false,
+    hasPrevPage: false
+  });
+  
   // Date Filters
-  const [startDateFilter, setStartDateFilter] = useState("");      // Rental Start Date filter
-  const [endDateFilter, setEndDateFilter] = useState("");          // Rental End Date filter
-  const [createdDateFilter, setCreatedDateFilter] = useState("");  // Booking Created Date filter
+  const [startDateFilter, setStartDateFilter] = useState("");
+  const [endDateFilter, setEndDateFilter] = useState("");
+  const [createdDateFilter, setCreatedDateFilter] = useState("");
+  
+  // Loading state
+  const [isLoading, setIsLoading] = useState(false);
   
   // Excel download loading state
   const [isDownloading, setIsDownloading] = useState(false);
   
   const bookingsPerPage = 10;
 
-  useEffect(() => {
-    fetchBookings();
-    fetchCars();
-  }, []);
-
-  const filterBookings = useCallback(() => {
-    let filtered = bookings.filter((booking) => {
-      // Apply search filter
-      const fieldVal = (() => {
-        switch (filterField) {
-          case "id":
-            return booking._id || '';
-          case "name":
-            return booking.userId?.name || '';
-          case "email":
-            return booking.userId?.email || '';
-          case "pickuplocation":
-            return booking.pickupLocation || '';
-          case "status":
-            return booking.status || '';
-          case "paymentstatus":
-            return booking.paymentStatus || '';
-          case "rentalstartdate":
-            return booking.rentalStartDate ? new Date(booking.rentalStartDate).toLocaleDateString() : '';
-          case "rentalenddate":
-            return booking.rentalEndDate ? new Date(booking.rentalEndDate).toLocaleDateString() : '';
-          case "createdat":
-            return booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : '';
-          case "replaced":
-            const hasReplacement = booking.carReplacementHistory && 
-              booking.carReplacementHistory.length > 0;
-            return hasReplacement ? "Yes" : "No";
-          case "extensions": // NEW: Filter by extension count
-            const extensionCount = booking.extensions?.length || 0;
-            return extensionCount > 0 ? "Extended" : "Not Extended";
-          default:
-            return "";
-        }
-      })();
-      
-      const matchesSearch = fieldVal.toString().toLowerCase().includes(searchQuery.toLowerCase());
-      
-      // Apply date filters
-      let matchesStartDate = true;
-      let matchesEndDate = true;
-      let matchesCreatedDate = true;
-      
-      // 1. Rental Start Date filter
-      if (startDateFilter) {
-        const bookingStartDate = booking.rentalStartDate ? new Date(booking.rentalStartDate).toISOString().split('T')[0] : '';
-        matchesStartDate = bookingStartDate === startDateFilter;
-      }
-      
-      // 2. Rental End Date filter
-      if (endDateFilter) {
-        const bookingEndDate = booking.rentalEndDate ? new Date(booking.rentalEndDate).toISOString().split('T')[0] : '';
-        matchesEndDate = bookingEndDate === endDateFilter;
-      }
-      
-      // 3. Booking Created Date filter
-      if (createdDateFilter) {
-        const bookingCreatedDate = booking.createdAt ? new Date(booking.createdAt).toISOString().split('T')[0] : '';
-        matchesCreatedDate = bookingCreatedDate === createdDateFilter;
-      }
-      
-      return matchesSearch && matchesStartDate && matchesEndDate && matchesCreatedDate;
-    });
-    
-    setFilteredBookings(filtered);
-    setCurrentPage(1);
-  }, [bookings, searchQuery, filterField, startDateFilter, endDateFilter, createdDateFilter]);
-
-  useEffect(() => {
-    filterBookings();
-  }, [filterBookings]);
-
-  const fetchBookings = async () => {
+  // Fetch bookings with pagination
+  const fetchBookings = async (page = 1) => {
     try {
-      const response = await axios.get("https://varahibackend.varahiselfdrivecars.com/api/staff/allbookings");
+      setIsLoading(true);
+      const response = await axios.get(`https://varahibackend.varahiselfdrivecars.com/api/staff/allbookingsforadmin?page=${page}&limit=${bookingsPerPage}`);
+      
       if (response.data?.bookings) {
-        const reversed = (response.data.bookings || []).reverse();
-        setBookings(reversed);
+        setBookings(response.data.bookings);
+        setFilteredBookings(response.data.bookings);
+        setPagination(response.data.pagination);
+        setCurrentPage(response.data.pagination.currentPage);
       }
     } catch (error) {
       console.error("Error fetching bookings:", error);
       toast.error("Failed to fetch bookings.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -223,6 +167,79 @@ const Bookings = () => {
     }
   };
 
+  const filterBookings = useCallback(() => {
+    let filtered = bookings.filter((booking) => {
+      // Apply search filter
+      const fieldVal = (() => {
+        switch (filterField) {
+          case "id":
+            return booking._id || '';
+          case "name":
+            return booking.userId?.name || '';
+          case "email":
+            return booking.userId?.email || '';
+          case "pickuplocation":
+            return booking.pickupLocation || '';
+          case "status":
+            return booking.status || '';
+          case "paymentstatus":
+            return booking.paymentStatus || '';
+          case "rentalstartdate":
+            return booking.rentalStartDate ? new Date(booking.rentalStartDate).toLocaleDateString() : '';
+          case "rentalenddate":
+            return booking.rentalEndDate ? new Date(booking.rentalEndDate).toLocaleDateString() : '';
+          case "createdat":
+            return booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : '';
+          case "replaced":
+            const hasReplacement = booking.carReplacementHistory && 
+              booking.carReplacementHistory.length > 0;
+            return hasReplacement ? "Yes" : "No";
+          case "extensions":
+            const extensionCount = booking.extensions?.length || 0;
+            return extensionCount > 0 ? "Extended" : "Not Extended";
+          default:
+            return "";
+        }
+      })();
+      
+      const matchesSearch = fieldVal.toString().toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Apply date filters
+      let matchesStartDate = true;
+      let matchesEndDate = true;
+      let matchesCreatedDate = true;
+      
+      if (startDateFilter) {
+        const bookingStartDate = booking.rentalStartDate ? new Date(booking.rentalStartDate).toISOString().split('T')[0] : '';
+        matchesStartDate = bookingStartDate === startDateFilter;
+      }
+      
+      if (endDateFilter) {
+        const bookingEndDate = booking.rentalEndDate ? new Date(booking.rentalEndDate).toISOString().split('T')[0] : '';
+        matchesEndDate = bookingEndDate === endDateFilter;
+      }
+      
+      if (createdDateFilter) {
+        const bookingCreatedDate = booking.createdAt ? new Date(booking.createdAt).toISOString().split('T')[0] : '';
+        matchesCreatedDate = bookingCreatedDate === createdDateFilter;
+      }
+      
+      return matchesSearch && matchesStartDate && matchesEndDate && matchesCreatedDate;
+    });
+    
+    setFilteredBookings(filtered);
+    setCurrentPage(1);
+  }, [bookings, searchQuery, filterField, startDateFilter, endDateFilter, createdDateFilter]);
+
+  useEffect(() => {
+    fetchBookings();
+    fetchCars();
+  }, []);
+
+  useEffect(() => {
+    filterBookings();
+  }, [filterBookings]);
+
   const handleEdit = (booking) => {
     setSelectedBooking({
       ...booking,
@@ -242,7 +259,6 @@ const Bookings = () => {
     setShowExtendModal(true);
   };
 
-  // NEW: Handle View Extensions
   const handleViewExtensions = (booking) => {
     setSelectedBooking(booking);
     setShowExtensionsModal(true);
@@ -260,39 +276,29 @@ const Bookings = () => {
     setShowReplaceModal(true);
   };
 
-  // NEW FUNCTION: Handle OTP Generation
   const handleGenerateOTP = async (bookingId) => {
     try {
-      // Show loading toast
       toast.info("Generating OTP...", { autoClose: false, toastId: 'otp-loading' });
       
-      // Call the API
       const response = await axios.put(
         `https://varahibackend.varahiselfdrivecars.com/api/staff/update-otp/${bookingId}`
       );
       
-      // Remove loading toast
       toast.dismiss('otp-loading');
       
       if (response.data && response.data.otp) {
-        // Show success message with OTP
         toast.success(`OTP generated successfully: ${response.data.otp}`, {
           autoClose: 5000
         });
         
-        // Refresh bookings to show updated OTP
-        await fetchBookings();
+        await fetchBookings(currentPage);
       } else {
         toast.success("OTP generated successfully!");
-        await fetchBookings();
+        await fetchBookings(currentPage);
       }
     } catch (error) {
-      // Remove loading toast
       toast.dismiss('otp-loading');
-      
       console.error("Error generating OTP:", error);
-      
-      // Show error message
       const errorMessage = error.response?.data?.message || error.response?.data?.error || "Failed to generate OTP";
       toast.error(`Error: ${errorMessage}`);
     }
@@ -430,7 +436,7 @@ const Bookings = () => {
       if (response.data.message) {
         toast.success(response.data.message);
         setShowExtendModal(false);
-        fetchBookings();
+        await fetchBookings(currentPage);
         
         setExtensionData({
           extendDeliveryDate: "",
@@ -502,7 +508,7 @@ const Bookings = () => {
       if (response.data.message) {
         toast.success(response.data.message);
         setShowReplaceModal(false);
-        fetchBookings();
+        await fetchBookings(currentPage);
         
         setReplaceData({
           newCarId: "",
@@ -627,7 +633,7 @@ const Bookings = () => {
         amount: editedAmount
       });
 
-      fetchBookings();
+      await fetchBookings(currentPage);
       setShowEditModal(false);
       toast.success("Booking updated successfully!");
     } catch (error) {
@@ -640,7 +646,7 @@ const Bookings = () => {
     if (window.confirm("Are you sure you want to delete this booking?")) {
       try {
         await axios.delete(`https://varahibackend.varahiselfdrivecars.com/api/admin/deletebooking/${bookingId}`);
-        fetchBookings();
+        await fetchBookings(currentPage);
         toast.success("Booking deleted successfully!");
       } catch (error) {
         console.error("Error deleting booking:", error);
@@ -670,7 +676,6 @@ const Bookings = () => {
     }
   };
 
-  // NEW: Get extension badge
   const getExtensionBadge = (extensions) => {
     if (!extensions || extensions.length === 0) {
       return <Badge bg="secondary">No Extensions</Badge>;
@@ -710,26 +715,22 @@ const Bookings = () => {
     );
   };
 
-  const indexOfLastBooking = currentPage * bookingsPerPage;
-  const indexOfFirstBooking = indexOfLastBooking - bookingsPerPage;
-  const currentBookings = filteredBookings.slice(indexOfFirstBooking, indexOfLastBooking);
-  const totalPages = Math.ceil(filteredBookings.length / bookingsPerPage);
-
+  // Updated pagination render function
   const renderPagination = () => {
-    if (!totalPages || totalPages < 1) return null;
+    if (!pagination.totalPages || pagination.totalPages < 1) return null;
 
     const pages = [];
     const pageSet = new Set();
 
     pageSet.add(1);
 
-    if (totalPages > 1) {
-      pageSet.add(totalPages);
+    if (pagination.totalPages > 1) {
+      pageSet.add(pagination.totalPages);
     }
 
-    if (currentPage > 1) pageSet.add(currentPage - 1);
-    pageSet.add(currentPage);
-    if (currentPage < totalPages) pageSet.add(currentPage + 1);
+    if (pagination.currentPage > 1) pageSet.add(pagination.currentPage - 1);
+    pageSet.add(pagination.currentPage);
+    if (pagination.currentPage < pagination.totalPages) pageSet.add(pagination.currentPage + 1);
 
     const sortedPages = Array.from(pageSet).sort((a, b) => a - b);
 
@@ -742,8 +743,8 @@ const Bookings = () => {
       pages.push(
         <Pagination.Item
           key={page}
-          active={page === currentPage}
-          onClick={() => setCurrentPage(page)}
+          active={page === pagination.currentPage}
+          onClick={() => handlePageChange(page)}
         >
           {page}
         </Pagination.Item>
@@ -755,15 +756,15 @@ const Bookings = () => {
     return (
       <Pagination className="mt-3 justify-content-center">
         <Pagination.Item
-          disabled={currentPage === 1}
-          onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)}
+          disabled={!pagination.hasPrevPage}
+          onClick={() => pagination.hasPrevPage && handlePageChange(pagination.currentPage - 1)}
         >
           Prev
         </Pagination.Item>
         {pages}
         <Pagination.Item
-          disabled={currentPage === totalPages}
-          onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)}
+          disabled={!pagination.hasNextPage}
+          onClick={() => pagination.hasNextPage && handlePageChange(pagination.currentPage + 1)}
         >
           Next
         </Pagination.Item>
@@ -771,13 +772,17 @@ const Bookings = () => {
     );
   };
 
+  // Handle page change
+  const handlePageChange = (page) => {
+    fetchBookings(page);
+  };
+
   const handleDownloadExcel = async () => {
     try {
       setIsDownloading(true);
       toast.info('Preparing filtered booking report...', { autoClose: 2000 });
 
-      // IMPORTANT FIX: Use filteredBookings instead of all bookings
-      // This ensures only the filtered data (based on date filters) is exported
+      // Use filteredBookings for export
       const dataToExport = filteredBookings.map(booking => ({
         'Booking ID': booking._id || '-',
         'User Name': booking.userId?.name || '-',
@@ -810,7 +815,6 @@ const Bookings = () => {
         'Staff Payment Status': booking.carReplacementHistory && booking.carReplacementHistory.length > 0 
           ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.staffPaymentStatus || '-') 
           : '-',
-        // NEW: Extension fields in Excel
         'Extension Count': booking.extensions?.length || 0,
         'Extension Details': booking.extensions && booking.extensions.length > 0 
           ? booking.extensions.map(ext => 
@@ -852,61 +856,22 @@ const Bookings = () => {
         return;
       }
 
-      // Create worksheet and workbook
       const ws = XLSX.utils.json_to_sheet(dataToExport);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Bookings");
 
       // Set column widths
       const wscols = [
-        { wch: 25 }, // Booking ID
-        { wch: 20 }, // User Name
-        { wch: 25 }, // User Email
-        { wch: 15 }, // User Mobile
-        { wch: 20 }, // Car Name
-        { wch: 15 }, // Car Model
-        { wch: 15 }, // Vehicle Number
-        { wch: 15 }, // Car Replacement
-        { wch: 20 }, // Original Car
-        { wch: 20 }, // Original Car Model
-        { wch: 20 }, // Replacement Car
-        { wch: 20 }, // Replacement Car Model
-        { wch: 20 }, // Replaced At
-        { wch: 18 }, // Payment Adjustment
-        { wch: 18 }, // Staff Payment Status
-        { wch: 15 }, // Extension Count
-        { wch: 50 }, // Extension Details
-        { wch: 18 }, // Total Extension Amount
-        { wch: 15 }, // Rental Start Date
-        { wch: 15 }, // Rental End Date
-        { wch: 20 }, // Timings
-        { wch: 12 }, // Total Price
-        { wch: 20 }, // Pickup Location
-        { wch: 15 }, // Status
-        { wch: 15 }, // Payment Status
-        { wch: 10 }, // OTP
-        { wch: 12 }, // Return OTP
-        { wch: 15 }, // Deposit Amount
-        { wch: 15 }, // Aadhar Status
-        { wch: 15 }, // License Status
-        { wch: 18 }, // Booking Created Date
-        { wch: 18 }, // Booking Created Time
-        { wch: 18 }, // Last Updated Date
-        { wch: 18 }, // Last Updated Time
-        { wch: 20 }, // Deposit Proof Count
-        { wch: 20 }, // Car Return Images Count
-        { wch: 20 }, // Car Pickup Images Count
-        { wch: 20 }, // Delayed Payment Proof
-        { wch: 20 }, // Final Booking PDF
-        { wch: 15 }, // Deposit PDF
-        { wch: 15 }, // Advance Paid Status
-        { wch: 25 }, // Transaction ID
-        { wch: 15 }, // Customer Took Car
-        { wch: 15 }  // Return Details Count
+        { wch: 25 }, { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 15 },
+        { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 18 },
+        { wch: 18 }, { wch: 15 }, { wch: 50 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 20 },
+        { wch: 12 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 12 }, { wch: 15 },
+        { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 20 },
+        { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 25 },
+        { wch: 15 }, { wch: 15 }
       ];
       ws['!cols'] = wscols;
 
-      // Add filter info in filename
       const dateStr = new Date().toISOString().split('T')[0];
       let filename = `bookings_${dateStr}`;
       
@@ -919,14 +884,12 @@ const Bookings = () => {
       
       filename += '.xlsx';
 
-      // Force download using different method
       setTimeout(() => {
         try {
           XLSX.writeFile(wb, filename);
           toast.success(`${dataToExport.length} bookings exported successfully!`, { autoClose: 2000 });
         } catch (writeError) {
           console.error('Error writing file:', writeError);
-          // Fallback method
           const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
           const buf = new ArrayBuffer(wbout.length);
           const view = new Uint8Array(buf);
@@ -977,7 +940,6 @@ const Bookings = () => {
     return <div>{booking.car?.model || 'N/A'}</div>;
   };
 
-  // NEW: Render extensions in table
   const renderExtensions = (booking) => {
     const extensions = booking.extensions || [];
     if (extensions.length === 0) {
@@ -1005,13 +967,12 @@ const Bookings = () => {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>Bookings Management</h2>
         <Badge bg="info" className="p-2">
-          Showing {filteredBookings.length} of {bookings.length} bookings
+          Showing {filteredBookings.length} of {pagination.totalBookings} bookings | Page {pagination.currentPage} of {pagination.totalPages}
         </Badge>
       </div>
 
       {/* Filter Section */}
       <Row className="mb-3">
-        {/* 1. Search Filter Dropdown */}
         <Col md={2}>
           <Form.Select value={filterField} onChange={(e) => setFilterField(e.target.value)}>
             <option value="id">Booking Id</option>
@@ -1024,11 +985,10 @@ const Bookings = () => {
             <option value="rentalenddate">Rental End Date</option>
             <option value="createdat">Booking Created Date</option>
             <option value="replaced">Car Replacements</option>
-            <option value="extensions">Extensions</option> {/* NEW: Extensions filter */}
+            <option value="extensions">Extensions</option>
           </Form.Select>
         </Col>
         
-        {/* 2. Search Input Field */}
         <Col md={3}>
           <InputGroup>
             <Form.Control
@@ -1051,7 +1011,6 @@ const Bookings = () => {
           </InputGroup>
         </Col>
         
-        {/* 3. Rental Start Date Filter */}
         <Col md={2}>
           <Form.Control
             type="date"
@@ -1062,7 +1021,6 @@ const Bookings = () => {
           <Form.Text className="text-muted">Rental Start Date</Form.Text>
         </Col>
         
-        {/* 4. Rental End Date Filter */}
         <Col md={2}>
           <Form.Control
             type="date"
@@ -1073,7 +1031,6 @@ const Bookings = () => {
           <Form.Text className="text-muted">Rental End Date</Form.Text>
         </Col>
         
-        {/* 5. Booking Created Date Filter */}
         <Col md={2}>
           <Form.Control
             type="date"
@@ -1084,7 +1041,6 @@ const Bookings = () => {
           <Form.Text className="text-muted">Booking Created Date</Form.Text>
         </Col>
         
-        {/* 6. Excel Export Button */}
         <Col md={1} className="text-end">
           <Button 
             variant="success" 
@@ -1112,11 +1068,11 @@ const Bookings = () => {
             variant="secondary" 
             size="sm" 
             onClick={() => {
-              setStartDateFilter("");      // Clear Rental Start Date filter
-              setEndDateFilter("");        // Clear Rental End Date filter
-              setCreatedDateFilter("");    // Clear Booking Created Date filter
-              setSearchQuery("");          // Clear search query
-              setFilterField("name");      // Reset filter field to default
+              setStartDateFilter("");
+              setEndDateFilter("");
+              setCreatedDateFilter("");
+              setSearchQuery("");
+              setFilterField("name");
             }}
           >
             Clear All Filters
@@ -1126,106 +1082,125 @@ const Bookings = () => {
 
       {/* Table Section */}
       <div className="table-responsive">
-        <Table bordered hover responsive>
-          <thead>
-            <tr className="table-header">
-              <th>S.NO</th>
-              <th>Booking ID</th>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Car</th>
-              <th>Model</th>
-              <th>Replaced</th>
-              <th>Extensions</th> {/* NEW: Extensions column */}
-              <th>Rental Start Date</th>
-              <th>Rental End Date</th>
-              <th>Booking Created Date</th>
-              <th>Timings</th>
-              <th>Total Price</th>
-              <th>Pickup Location</th>
-              <th>Status</th>
-              <th>Payment</th>
-              <th>OTP</th>
-              <th>Return OTP</th>
-              <th>Actions</th>
-              <th>Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentBookings.length > 0 ? (
-              currentBookings.map((booking, index) => (
-                <tr key={booking._id} className={booking.carReplacementHistory && booking.carReplacementHistory.length > 0 ? 'table-info' : ''}>
-                  <td className="text-center">{(currentPage - 1) * bookingsPerPage + index + 1}</td>
-                  <td>{booking._id?.slice(-6) || 'N/A'}</td>
-                  <td>{booking.userId?.name || 'N/A'}</td>
-                  <td>{booking.userId?.email || 'N/A'}</td>
-                  <td>{renderCarInfo(booking)}</td>
-                  <td>{renderCarModel(booking)}</td>
-                  <td>{getReplacementStatus(booking)}</td>
-                  <td>{renderExtensions(booking)}</td> {/* NEW: Extensions cell */}
-                  <td>{booking.rentalStartDate ? new Date(booking.rentalStartDate).toLocaleDateString() : 'N/A'}</td>
-                  <td>{booking.rentalEndDate ? new Date(booking.rentalEndDate).toLocaleDateString() : 'N/A'}</td>
-                  <td>{booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : 'N/A'}</td>
-                  <td>{booking.from || 'N/A'} - {booking.to || 'N/A'}</td>
-                  <td>₹{booking.totalPrice || '0'}</td>
-                  <td>{booking.pickupLocation || 'N/A'}</td>
-                  <td>
-                    <Badge bg={getStatusBadge(booking.status)} className="text-capitalize">
-                      {booking.status || 'N/A'}
-                    </Badge>
-                  </td>
-                  <td>
-                    <Badge bg={getPaymentBadge(booking.paymentStatus)} className="text-capitalize">
-                      {booking.paymentStatus || 'N/A'}
-                    </Badge>
-                  </td>
-                  <td>
-                    {booking.otp || 'N/A'}
-                    {/* NEW OTP Generate Button - Only shows if OTP is empty or missing */}
-                    {!booking.otp && (
-                      <Button 
-                        variant="outline-success" 
-                        size="sm" 
-                        className="ms-1"
-                        onClick={() => handleGenerateOTP(booking._id)}
-                        title="Generate OTP"
-                      >
-                        <i className="fas fa-key"></i>
-                      </Button>
-                    )}
-                  </td>
-                  <td>{booking.returnOTP || 'N/A'}</td>
-                  <td className="text-center align-middle">
-                    <Button variant="outline-warning" size="sm" className="me-1 mb-1 mt-1" onClick={() => handleEdit(booking)}>
-                      <i className="fas fa-edit"></i>
-                    </Button>
-                    <Button variant="outline-primary" size="sm" className="me-1 mb-1 mt-1" onClick={() => handleExtend(booking)}>
-                      <i className="fas fa-clock"></i>
-                    </Button>
-                    <Button variant="outline-info" size="sm" className="me-1 mb-1 mt-1" onClick={() => handleReplace(booking)}>
-                      <i className="fas fa-exchange-alt"></i>
-                    </Button>
-                    <Button variant="outline-danger" size="sm" onClick={() => handleDelete(booking._id)}>
-                      <i className="fas fa-trash-alt"></i>
-                    </Button>
-                  </td>
-                  <td className="text-center align-middle">
-                    <Button variant="outline-info" size="sm" className="me-1 mb-1 mt-1" onClick={() => handleViewDetails(booking._id)}>
-                      view
-                    </Button>
-                  </td>
+        {isLoading ? (
+          <div className="text-center py-5">
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">Loading...</span>
+            </div>
+            <p className="mt-2">Loading bookings...</p>
+          </div>
+        ) : (
+          <>
+            <Table bordered hover responsive>
+              <thead>
+                <tr className="table-header">
+                  <th>S.NO</th>
+                  <th>Booking ID</th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Car</th>
+                  <th>Model</th>
+                  <th>Replaced</th>
+                  <th>Extensions</th>
+                  <th>Rental Start Date</th>
+                  <th>Rental End Date</th>
+                  <th>Booking Created Date</th>
+                  <th>Timings</th>
+                  <th>Total Price</th>
+                  <th>Pickup Location</th>
+                  <th>Status</th>
+                  <th>Payment</th>
+                  <th>OTP</th>
+                  <th>Return OTP</th>
+                  <th>Actions</th>
+                  <th>Details</th>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="20" className="text-center">No bookings found</td> {/* Updated colSpan */}
-              </tr>
-            )}
-          </tbody>
-        </Table>
-        {renderPagination()}
+              </thead>
+              <tbody>
+                {filteredBookings.length > 0 ? (
+                  filteredBookings.map((booking, index) => (
+                    <tr key={booking._id} className={booking.carReplacementHistory && booking.carReplacementHistory.length > 0 ? 'table-info' : ''}>
+                      <td className="text-center">{((pagination.currentPage - 1) * bookingsPerPage) + index + 1}</td>
+                      <td>{booking._id?.slice(-6) || 'N/A'}</td>
+                      <td>{booking.userId?.name || 'N/A'}</td>
+                      <td>{booking.userId?.email || 'N/A'}</td>
+                      <td>{renderCarInfo(booking)}</td>
+                      <td>{renderCarModel(booking)}</td>
+                      <td>{getReplacementStatus(booking)}</td>
+                      <td>{renderExtensions(booking)}</td>
+                      <td>{booking.rentalStartDate ? new Date(booking.rentalStartDate).toLocaleDateString() : 'N/A'}</td>
+                      <td>{booking.rentalEndDate ? new Date(booking.rentalEndDate).toLocaleDateString() : 'N/A'}</td>
+                      <td>{booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : 'N/A'}</td>
+                      <td>{booking.from || 'N/A'} - {booking.to || 'N/A'}</td>
+                      <td>₹{booking.totalPrice || '0'}</td>
+                      <td>{booking.pickupLocation || 'N/A'}</td>
+                      <td>
+                        <Badge bg={getStatusBadge(booking.status)} className="text-capitalize">
+                          {booking.status || 'N/A'}
+                        </Badge>
+                      </td>
+                      <td>
+                        <Badge bg={getPaymentBadge(booking.paymentStatus)} className="text-capitalize">
+                          {booking.paymentStatus || 'N/A'}
+                        </Badge>
+                      </td>
+                      <td>
+                        {booking.otp || 'N/A'}
+                        {!booking.otp && (
+                          <Button 
+                            variant="outline-success" 
+                            size="sm" 
+                            className="ms-1"
+                            onClick={() => handleGenerateOTP(booking._id)}
+                            title="Generate OTP"
+                          >
+                            <i className="fas fa-key"></i>
+                          </Button>
+                        )}
+                      </td>
+                      <td>{booking.returnOTP || 'N/A'}</td>
+                      <td className="text-center align-middle">
+                        <Button variant="outline-warning" size="sm" className="me-1 mb-1 mt-1" onClick={() => handleEdit(booking)}>
+                          <i className="fas fa-edit"></i>
+                        </Button>
+                        <Button variant="outline-primary" size="sm" className="me-1 mb-1 mt-1" onClick={() => handleExtend(booking)}>
+                          <i className="fas fa-clock"></i>
+                        </Button>
+                        <Button variant="outline-info" size="sm" className="me-1 mb-1 mt-1" onClick={() => handleReplace(booking)}>
+                          <i className="fas fa-exchange-alt"></i>
+                        </Button>
+                        <Button variant="outline-danger" size="sm" onClick={() => handleDelete(booking._id)}>
+                          <i className="fas fa-trash-alt"></i>
+                        </Button>
+                      </td>
+                      <td className="text-center align-middle">
+                        <Button variant="outline-info" size="sm" className="me-1 mb-1 mt-1" onClick={() => handleViewDetails(booking._id)}>
+                          view
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="20" className="text-center">No bookings found</td>
+                  </tr>
+                )}
+              </tbody>
+            </Table>
+            {renderPagination()}
+            
+            {/* Pagination Info */}
+            <div className="text-center text-muted mt-2">
+              <small>
+                Showing {filteredBookings.length} of {pagination.totalBookings} bookings | 
+                Page {pagination.currentPage} of {pagination.totalPages}
+              </small>
+            </div>
+          </>
+        )}
       </div>
 
+      {/* All Modals remain exactly the same as before */}
       {/* Edit Modal */}
       <Modal show={showEditModal} onHide={() => setShowEditModal(false)}>
         <Modal.Header closeButton>
@@ -1573,7 +1548,7 @@ const Bookings = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* NEW: View Extensions Modal */}
+      {/* View Extensions Modal */}
       <Modal show={showExtensionsModal} onHide={() => setShowExtensionsModal(false)} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Booking Extensions</Modal.Title>
@@ -1651,7 +1626,7 @@ const Bookings = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* Details Modal */}
+      {/* Details Modal - Keep same as before */}
       <Modal show={showDetailsModal} onHide={() => setShowDetailsModal(false)} size="xl" centered scrollable>
         <Modal.Header closeButton>
           <Modal.Title>Booking Details</Modal.Title>
@@ -1659,7 +1634,8 @@ const Bookings = () => {
         <Modal.Body>
           {bookingDetails && (
             <div className="row">
-              {/* Left Column - User Information */}
+              {/* Keep all existing details modal content exactly the same */}
+              {/* ... (all details modal content remains unchanged) ... */}
               <div className="col-md-6">
                 <h5 className="text-primary">User Information</h5>
                 <div className="mb-3">
@@ -1764,7 +1740,6 @@ const Bookings = () => {
                 </div>
               </div>
 
-              {/* Right Column - Booking & Car Information */}
               <div className="col-md-6">
                 <h5 className="text-primary">Booking Information</h5>
                 <div className="mb-3">
@@ -1787,7 +1762,6 @@ const Bookings = () => {
                   <p><strong>Last Updated Time:</strong> {bookingDetails.updatedAt ? new Date(bookingDetails.updatedAt).toLocaleTimeString() : 'N/A'}</p>
                 </div>
 
-                {/* NEW: Extensions Section in Details Modal */}
                 {bookingDetails.extensions && bookingDetails.extensions.length > 0 && (
                   <Card className="mb-4 border-info">
                     <Card.Header className="bg-info text-white d-flex justify-content-between align-items-center">
@@ -1838,7 +1812,6 @@ const Bookings = () => {
                   </Card>
                 )}
 
-                {/* Car Replacement History Section */}
                 {bookingDetails.carReplacementHistory && bookingDetails.carReplacementHistory.length > 0 && (
                   <Card className="mb-4 border-warning">
                     <Card.Header className="bg-warning text-dark d-flex justify-content-between align-items-center">

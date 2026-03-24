@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Modal, Table, Row, Col, Form, Spinner, Alert, Pagination, Image, FormControl } from 'react-bootstrap';
+import { Button, Modal, Table, Row, Col, Form, Spinner, Alert, Pagination, Image, FormControl, Badge } from 'react-bootstrap';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import * as XLSX from 'xlsx';
@@ -27,32 +27,44 @@ const Users = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterField, setFilterField] = useState('name');
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  
+  // Pagination state from backend
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalUsers: 0,
+    limit: 10,
+    hasNextPage: false,
+    hasPrevPage: false
+  });
 
   const usersPerPage = 10;
 
+  // Fetch users with pagination
+  const fetchUsers = async (page = 1) => {
+    try {
+      setLoading(true);
+      const res = await fetch(`https://varahibackend.varahiselfdrivecars.com/api/admin/allusers?page=${page}&limit=${usersPerPage}`);
+      if (!res.ok) throw new Error('Failed to fetch users');
+      const data = await res.json();
+
+      setUsers(data.users);
+      setFilteredUsers(data.users);
+      setPagination(data.pagination);
+      setCurrentPage(data.pagination.currentPage);
+    } catch (err) {
+      setError(err.message);
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const res = await fetch('https://varahibackend.varahiselfdrivecars.com/api/admin/allusers');
-        if (!res.ok) throw new Error('Failed to fetch users');
-        const data = await res.json();
-
-        // Reverse order (newest first)
-        const reversed = (data.users || []).reverse();
-
-        setUsers(reversed);
-        setFilteredUsers(reversed);
-      } catch (err) {
-        setError(err.message);
-        toast.error(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchUsers();
   }, []);
 
-
+  // Filter users based on search
   useEffect(() => {
     if (searchTerm === '') {
       setFilteredUsers(users);
@@ -70,7 +82,6 @@ const Users = () => {
     try {
       setEditingIndex(index);
 
-      // Fetch detailed user data before showing edit form
       const res = await fetch(`https://varahibackend.varahiselfdrivecars.com/api/users/get-user/${user.id}`);
       if (!res.ok) throw new Error('Failed to fetch user details');
       const data = await res.json();
@@ -129,26 +140,7 @@ const Users = () => {
 
         if (!res.ok) throw new Error('Failed to update user');
 
-        const updatedUsers = [...users];
-        updatedUsers[editingIndex] = {
-          ...updatedUsers[editingIndex],
-          name: formData.name,
-          email: formData.email,
-          mobile: formData.mobile,
-          profileImage: formData.profileImage,
-          documents: {
-            aadharCard: {
-              ...updatedUsers[editingIndex].documents?.aadharCard,
-              status: formData.documents.aadharCard.status
-            },
-            drivingLicense: {
-              ...updatedUsers[editingIndex].documents?.drivingLicense,
-              status: formData.documents.drivingLicense.status
-            }
-          }
-        };
-        setUsers(updatedUsers);
-
+        await fetchUsers(currentPage);
         toast.success('User updated successfully!');
       }
 
@@ -170,10 +162,7 @@ const Users = () => {
       });
       if (!res.ok) throw new Error('Failed to delete user');
 
-      const updatedUsers = users.filter(u => u.id !== user.id);
-      setUsers(updatedUsers);
-      setFilteredUsers(updatedUsers);
-
+      await fetchUsers(currentPage);
       toast.success('User deleted successfully!');
     } catch (err) {
       toast.error(err.message);
@@ -243,10 +232,67 @@ const Users = () => {
     }
   };
 
-  const indexOfLastUser = currentPage * usersPerPage;
-  const indexOfFirstUser = indexOfLastUser - usersPerPage;
-  const currentUsers = sortedUsers.slice(indexOfFirstUser, indexOfLastUser);
-  const totalPages = Math.ceil(sortedUsers.length / usersPerPage);
+  // Updated pagination render function
+  const renderPagination = () => {
+    if (!pagination.totalPages || pagination.totalPages < 1) return null;
+
+    const pages = [];
+    const pageSet = new Set();
+
+    pageSet.add(1);
+
+    if (pagination.totalPages > 1) {
+      pageSet.add(pagination.totalPages);
+    }
+
+    if (pagination.currentPage > 1) pageSet.add(pagination.currentPage - 1);
+    pageSet.add(pagination.currentPage);
+    if (pagination.currentPage < pagination.totalPages) pageSet.add(pagination.currentPage + 1);
+
+    const sortedPages = Array.from(pageSet).sort((a, b) => a - b);
+
+    let lastPage = 0;
+    sortedPages.forEach((page) => {
+      if (page - lastPage > 1) {
+        pages.push(<Pagination.Ellipsis key={`ellipsis-${page}`} disabled />);
+      }
+
+      pages.push(
+        <Pagination.Item
+          key={page}
+          active={page === pagination.currentPage}
+          onClick={() => handlePageChange(page)}
+        >
+          {page}
+        </Pagination.Item>
+      );
+
+      lastPage = page;
+    });
+
+    return (
+      <Pagination className="mt-3 justify-content-center">
+        <Pagination.Item
+          disabled={!pagination.hasPrevPage}
+          onClick={() => pagination.hasPrevPage && handlePageChange(pagination.currentPage - 1)}
+        >
+          Prev
+        </Pagination.Item>
+        {pages}
+        <Pagination.Item
+          disabled={!pagination.hasNextPage}
+          onClick={() => pagination.hasNextPage && handlePageChange(pagination.currentPage + 1)}
+        >
+          Next
+        </Pagination.Item>
+      </Pagination>
+    );
+  };
+
+  // Handle page change
+  const handlePageChange = (page) => {
+    fetchUsers(page);
+  };
 
   const downloadExcel = async () => {
     try {
@@ -254,8 +300,12 @@ const Users = () => {
       toast.info('Preparing Excel file with detailed user data...', { autoClose: 2000 });
 
       // Fetch detailed data for all users
+      const allUsersRes = await fetch('https://varahibackend.varahiselfdrivecars.com/api/admin/allusers?page=1&limit=1000');
+      const allUsersData = await allUsersRes.json();
+      const allUsers = allUsersData.users || [];
+
       const detailedUsers = await Promise.all(
-        users.map(async (user) => {
+        allUsers.map(async (user) => {
           try {
             const res = await fetch(`https://varahibackend.varahiselfdrivecars.com/api/users/get-user/${user.id}`);
             if (!res.ok) throw new Error(`Failed to fetch details for user ${user.id}`);
@@ -263,12 +313,11 @@ const Users = () => {
             return data.user;
           } catch (error) {
             console.error(error);
-            return user; // Fallback to basic user data if detailed fetch fails
+            return user;
           }
         })
       );
 
-      // Prepare Excel data
       const data = detailedUsers.map(user => ({
         'User ID': user.id,
         'Name': user.name || '-',
@@ -288,31 +337,17 @@ const Users = () => {
           : '-'
       }));
 
-      // Create worksheet and workbook
       const ws = XLSX.utils.json_to_sheet(data);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Users");
 
-      // Set column widths
       const wscols = [
-        { wch: 20 }, // User ID
-        { wch: 25 }, // Name
-        { wch: 30 }, // Email
-        { wch: 15 }, // Mobile
-        { wch: 30 }, // Profile Image
-        { wch: 15 }, // Registered Date
-        { wch: 15 }, // Aadhar Status
-        { wch: 50 }, // Aadhar URL
-        { wch: 15 }, // License Status
-        { wch: 50 }, // License URL
-        { wch: 15 }, // Total Bookings
-        { wch: 15 }, // Total Spent
-        { wch: 15 }, // Wallet Balance
-        { wch: 15 }  // Last Booking Date
+        { wch: 20 }, { wch: 25 }, { wch: 30 }, { wch: 15 }, { wch: 30 },
+        { wch: 15 }, { wch: 15 }, { wch: 50 }, { wch: 15 }, { wch: 50 },
+        { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }
       ];
       ws['!cols'] = wscols;
 
-      // Add header style
       const headerStyle = {
         font: { bold: true, color: { rgb: "FFFFFF" } },
         fill: { fgColor: { rgb: "4F81BD" } },
@@ -326,7 +361,6 @@ const Users = () => {
         ws[cellAddress].s = headerStyle;
       }
 
-      // Export the file
       XLSX.writeFile(wb, "detailed_users_report.xlsx");
       toast.success('Excel file downloaded successfully!', { autoClose: 2000 });
 
@@ -338,72 +372,14 @@ const Users = () => {
     }
   };
 
-  const renderPagination = () => {
-    if (!totalPages || totalPages < 1) return null; // prevent rendering if totalPages is invalid
-
-    const pages = [];
-    const pageSet = new Set();
-
-    // Always add first page
-    pageSet.add(1);
-
-    // Only add last page if more than 1
-    if (totalPages > 1) {
-      pageSet.add(totalPages);
-    }
-
-    // Add current page and its neighbors
-    if (currentPage > 1) pageSet.add(currentPage - 1);
-    pageSet.add(currentPage);
-    if (currentPage < totalPages) pageSet.add(currentPage + 1);
-
-    // Convert to sorted array
-    const sortedPages = Array.from(pageSet).sort((a, b) => a - b);
-
-    let lastPage = 0;
-    sortedPages.forEach((page) => {
-      if (page - lastPage > 1) {
-        pages.push(<Pagination.Ellipsis key={`ellipsis-${page}`} disabled />);
-      }
-
-      pages.push(
-        <Pagination.Item
-          key={page}
-          active={page === currentPage}
-          onClick={() => setCurrentPage(page)}
-        >
-          {page}
-        </Pagination.Item>
-      );
-
-      lastPage = page;
-    });
-
-    return (
-      <Pagination className="mt-3 justify-content-center">
-        <Pagination.Item
-          disabled={currentPage === 1}
-          onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)}
-        >
-          Prev
-        </Pagination.Item>
-        {pages}
-        <Pagination.Item
-          disabled={currentPage === totalPages}
-          onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)}
-        >
-          Next
-        </Pagination.Item>
-      </Pagination>
-    );
-  };
-
-
   return (
     <div className="p-3">
       <ToastContainer position="top-right" autoClose={2000} />
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h2 className="mb-0">Users Management</h2>
+        <Badge bg="info" className="p-2">
+          Showing {filteredUsers.length} of {pagination.totalUsers} users | Page {pagination.currentPage} of {pagination.totalPages}
+        </Badge>
       </div>
 
       <Row className="mb-3">
@@ -449,22 +425,20 @@ const Users = () => {
             <Table striped bordered hover responsive>
               <thead>
                 <tr className='table-header'>
-                  <th >SNO</th>
-                  <th>ID</th>
+                  <th>S.NO</th>
                   <th>Profile</th>
                   <th>Name</th>
                   <th>Mobile</th>
                   <th>Email</th>
                   <th>Actions</th>
                   <th>Details</th>
-                </tr>
+                 </tr>
               </thead>
               <tbody>
-                {currentUsers.length > 0 ? (
-                  currentUsers.map((u, i) => (
-                    <tr key={indexOfFirstUser + i}>
-                      <td className="text-center">{indexOfFirstUser + i + 1}</td>
-                      <td>{u.id?.slice(-6) || '-'}</td>
+                {sortedUsers.length > 0 ? (
+                  sortedUsers.map((u, i) => (
+                    <tr key={u.id}>
+                      <td className="text-center">{((pagination.currentPage - 1) * usersPerPage) + i + 1}</td>
                       <td>
                         <Image
                           src={u.profileImage ? u.profileImage : "/profile.png"}
@@ -485,7 +459,7 @@ const Users = () => {
                           <i className="fas fa-edit"></i>
                         </button>
                         <button
-                          onClick={() => handleDelete(filteredUsers.findIndex(user => user.id === u.id))}
+                          onClick={() => handleDelete(sortedUsers.findIndex(user => user.id === u.id))}
                           className="btn btn-sm btn-outline-danger"
                         >
                           <i className="fas fa-trash"></i>
@@ -503,12 +477,20 @@ const Users = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="10" className="text-center">No users found</td>
+                    <td colSpan="7" className="text-center">No users found</td>
                   </tr>
                 )}
               </tbody>
             </Table>
             {renderPagination()}
+            
+            {/* Pagination Info */}
+            <div className="text-center text-muted mt-2">
+              <small>
+                Showing {sortedUsers.length} of {pagination.totalUsers} users | 
+                Page {pagination.currentPage} of {pagination.totalPages}
+              </small>
+            </div>
           </div>
         </>
       )}
@@ -605,6 +587,7 @@ const Users = () => {
         </Modal.Footer>
       </Modal>
 
+      {/* Details Modal */}
       <Modal show={showDetailsModal} onHide={() => setShowDetailsModal(false)} size="lg" centered>
         <Modal.Header closeButton>
           <Modal.Title className='text-primary'>User Details</Modal.Title>
@@ -725,7 +708,7 @@ const Users = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="7" className="text-center">No bookings found</td>
+                        <td colSpan="8" className="text-center">No bookings found</td>
                       </tr>
                     )}
                   </tbody>
@@ -761,7 +744,6 @@ const Users = () => {
           <Button variant="secondary" onClick={() => setShowDetailsModal(false)}>
             Close
           </Button>
-
         </Modal.Footer>
       </Modal>
     </div>

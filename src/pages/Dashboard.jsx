@@ -56,7 +56,7 @@ const Dashboard = () => {
         const [userRes, vehicleRes, bookingRes, staffRes] = await Promise.all([
           axios.get('https://varahibackend.varahiselfdrivecars.com/api/admin/allusers'),
           axios.get('https://varahibackend.varahiselfdrivecars.com/api/car/get-cars'),
-          axios.get('https://varahibackend.varahiselfdrivecars.com/api/staff/allbookings'),
+          axios.get('https://varahibackend.varahiselfdrivecars.com/api/staff/allbookingsforadmin'),
           axios.get('https://varahibackend.varahiselfdrivecars.com/api/admin/getallstaffs'),
         ]);
 
