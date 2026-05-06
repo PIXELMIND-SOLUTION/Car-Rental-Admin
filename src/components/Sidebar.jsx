@@ -5,6 +5,7 @@ import {
   FaTachometerAlt,
   FaUsers,
   FaUserTie,
+  FaUserFriends,   // added for Owners
   FaCarSide,
   FaClipboardList,
   FaImages,
@@ -26,6 +27,7 @@ const Sidebar = ({ isCollapsed, onToggleCollapse, isMobile }) => {
     { path: '/admin/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard' },
     { path: '/admin/users', icon: <FaUsers />, label: 'Users' },
     { path: '/admin/staff', icon: <FaUserTie />, label: 'Staff' },
+    { path: '/admin/owners', icon: <FaUserFriends />, label: 'Owners' },   // new entry
     { path: '/admin/vehicles', icon: <FaCarSide />, label: 'Vehicles' },
     // { path: '/admin/premium-deposits', icon: <FaMedal />, label: 'Premium Deposits' },
     { path: '/admin/bookings', icon: <FaClipboardList />, label: 'Bookings' },
@@ -35,7 +37,7 @@ const Sidebar = ({ isCollapsed, onToggleCollapse, isMobile }) => {
     { path: '/admin/maintanence', icon: <FaTools />, label: 'Maintenance' },
     { path: '/admin/settings', icon: <FaCog />, label: 'Settings' },
     { 
-      path: '/logout', // fake path, not used for navigation
+      path: '/logout',
       icon: <FaSignOutAlt />, 
       label: 'Logout',
       onClick: () => {

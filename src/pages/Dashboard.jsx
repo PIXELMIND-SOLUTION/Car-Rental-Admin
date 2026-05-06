@@ -2,7 +2,7 @@ import axios from 'axios';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Spinner, Row, Col, Container, Table, Button, Badge } from 'react-bootstrap';
-import { FaUsers, FaCarSide, FaClipboardList, FaUserTie } from 'react-icons/fa';
+import { FaUsers, FaCarSide, FaClipboardList, FaUserTie, FaUserFriends } from 'react-icons/fa';
 import { Bar, Pie, Line, Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -33,6 +33,7 @@ const Dashboard = () => {
   const [userCount, setUserCount] = useState(0);
   const [vehicleCount, setVehicleCount] = useState(0);
   const [staffCount, setStaffCount] = useState(0);
+  const [ownerCount, setOwnerCount] = useState(0);
   const [bookingStats, setBookingStats] = useState({
     pending: 0,
     confirmed: 0,
@@ -52,11 +53,12 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const [userRes, vehicleRes, bookingRes, staffRes] = await Promise.all([
+        const [userRes, vehicleRes, bookingRes, staffRes, ownerRes] = await Promise.all([
           axios.get('https://varahibackend.varahiselfdrivecars.com/api/admin/allusers'),
           axios.get('https://varahibackend.varahiselfdrivecars.com/api/car/get-cars'),
           axios.get('https://varahibackend.varahiselfdrivecars.com/api/staff/allbookingsforadmin'),
           axios.get('https://varahibackend.varahiselfdrivecars.com/api/admin/getallstaffs'),
+          axios.get('https://varahibackend.varahiselfdrivecars.com/api/admin/allowners'),
         ]);
 
         const totalUsers = userRes.data?.pagination?.totalUsers || 0;
@@ -67,6 +69,10 @@ const Dashboard = () => {
 
         const totalStaff = staffRes.data?.pagination?.totalStaff || staffRes.data?.staff?.length || 0;
         setStaffCount(totalStaff);
+
+        // Owner count from API
+        const totalOwners = ownerRes.data?.count || ownerRes.data?.data?.length || 0;
+        setOwnerCount(totalOwners);
 
         const totalBookings = bookingRes.data?.pagination?.totalBookings || 0;
         setTotalBookingsCount(totalBookings);
@@ -121,12 +127,13 @@ const Dashboard = () => {
   const handlePrevPage = () => currentPage > 1 && setCurrentPage(prev => prev - 1);
   const handleNextPage = () => currentPage < totalPages && setCurrentPage(prev => prev + 1);
 
+  // Updated bar data with Owners
   const barData = {
-    labels: ['Users', 'Staff', 'Vehicles', 'Bookings'],
+    labels: ['Users', 'Staff', 'Owners', 'Vehicles', 'Bookings'],
     datasets: [{
       label: 'Count',
-      data: [userCount, staffCount, vehicleCount, bookingCount],
-      backgroundColor: ['#a855f7', '#10b981', '#6366f1', '#f59e0b'],
+      data: [userCount, staffCount, ownerCount, vehicleCount, bookingCount],
+      backgroundColor: ['#a855f7', '#10b981', '#f97316', '#6366f1', '#f59e0b'],
       borderRadius: 12,
     }],
   };
@@ -201,10 +208,11 @@ const Dashboard = () => {
     }
   };
 
-  // 🎨 Distinct card backgrounds + click navigation
+  // Card configurations with Owners card added
   const cardConfig = [
     { label: 'Total Users', value: userCount, icon: <FaUsers />, path: '/admin/users', bg: 'linear-gradient(135deg, #f3e8ff 0%, #faf5ff 100%)', iconBg: '#a855f7' },
     { label: 'Total Staff', value: staffCount, icon: <FaUserTie />, path: '/admin/staff', bg: 'linear-gradient(135deg, #e0f2fe 0%, #ecfdf5 100%)', iconBg: '#10b981' },
+    { label: 'Total Owners', value: ownerCount, icon: <FaUserFriends />, path: '/admin/owners', bg: 'linear-gradient(135deg, #ffede0 0%, #fff5e6 100%)', iconBg: '#f97316' },
     { label: 'Total Vehicles', value: vehicleCount, icon: <FaCarSide />, path: '/admin/vehicles', bg: 'linear-gradient(135deg, #e0e7ff 0%, #eef2ff 100%)', iconBg: '#6366f1' },
     { label: 'Total Bookings', value: bookingCount, icon: <FaClipboardList />, path: '/admin/bookings', bg: 'linear-gradient(135deg, #ffedd5 0%, #fff7ed 100%)', iconBg: '#f59e0b' },
   ];
@@ -216,11 +224,12 @@ const Dashboard = () => {
           ✨ Admin Dashboard ✨
         </h2>
 
+        {/* Responsive row - cards will wrap automatically */}
         <Row className="g-4 mb-5">
           {cardConfig.map((card, idx) => (
-            <Col md={3} key={idx}>
+            <Col md={6} lg={4} xl={2} key={idx} className="d-flex">
               <div
-                style={{ ...styles.glassCard, background: card.bg, cursor: 'pointer' }}
+                style={{ ...styles.glassCard, background: card.bg, cursor: 'pointer', width: '100%' }}
                 onClick={() => navigate(card.path)}
               >
                 <div className="d-flex align-items-center">

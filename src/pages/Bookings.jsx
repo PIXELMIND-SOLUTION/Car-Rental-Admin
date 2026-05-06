@@ -2109,7 +2109,7 @@ const loadRazorpayScript = (src) => {
 
 const Bookings = () => {
   const [bookings, setBookings] = useState([]);
-  const [allBookings, setAllBookings] = useState([]);        // NEW: stores all bookings for search
+  const [allBookings, setAllBookings] = useState([]);
   const [filteredBookings, setFilteredBookings] = useState([]);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [bookingDetails, setBookingDetails] = useState(null);
@@ -2139,7 +2139,6 @@ const Bookings = () => {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isReplacingCar, setIsReplacingCar] = useState(false);
   
-  // Pagination state from backend
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -2149,20 +2148,14 @@ const Bookings = () => {
     hasPrevPage: false
   });
   
-  // Date Filters
   const [startDateFilter, setStartDateFilter] = useState("");
   const [endDateFilter, setEndDateFilter] = useState("");
   const [createdDateFilter, setCreatedDateFilter] = useState("");
-  
-  // Loading state
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Excel download loading state
   const [isDownloading, setIsDownloading] = useState(false);
   
   const bookingsPerPage = 10;
 
-  // Fetch bookings with pagination
   const fetchBookings = async (page = 1) => {
     try {
       setIsLoading(true);
@@ -2182,7 +2175,6 @@ const Bookings = () => {
     }
   };
 
-  // NEW: Fetch all bookings for search (without pagination)
   const fetchAllBookings = async () => {
     try {
       const response = await axios.get(`https://varahibackend.varahiselfdrivecars.com/api/staff/allbookingsforadmin?page=1&limit=10000`);
@@ -2256,15 +2248,12 @@ const Bookings = () => {
     }
   };
 
-  // FIX: Filter logic now uses allBookings when search or date filters active, otherwise paginated bookings
   const filterBookings = useCallback(() => {
-    // Decide which source to use
     const sourceList = (searchQuery !== "" || startDateFilter || endDateFilter || createdDateFilter) 
       ? allBookings 
       : bookings;
     
     let filtered = sourceList.filter((booking) => {
-      // Apply search filter
       const fieldVal = (() => {
         switch (filterField) {
           case "id":
@@ -2299,7 +2288,6 @@ const Bookings = () => {
       
       const matchesSearch = fieldVal.toString().toLowerCase().includes(searchQuery.toLowerCase());
       
-      // Apply date filters
       let matchesStartDate = true;
       let matchesEndDate = true;
       let matchesCreatedDate = true;
@@ -2328,7 +2316,7 @@ const Bookings = () => {
 
   useEffect(() => {
     fetchBookings();
-    fetchAllBookings();   // fetch all for search
+    fetchAllBookings();
     fetchCars();
   }, []);
 
@@ -2388,7 +2376,7 @@ const Bookings = () => {
         });
         
         await fetchBookings(currentPage);
-        await fetchAllBookings(); // refresh all bookings too
+        await fetchAllBookings();
       } else {
         toast.success("OTP generated successfully!");
         await fetchBookings(currentPage);
@@ -2535,7 +2523,7 @@ const Bookings = () => {
         toast.success(response.data.message);
         setShowExtendModal(false);
         await fetchBookings(currentPage);
-        await fetchAllBookings(); // refresh all bookings
+        await fetchAllBookings();
         setExtensionData({
           extendDeliveryDate: "",
           extendDeliveryTime: "",
@@ -2607,7 +2595,7 @@ const Bookings = () => {
         toast.success(response.data.message);
         setShowReplaceModal(false);
         await fetchBookings(currentPage);
-        await fetchAllBookings(); // refresh all bookings
+        await fetchAllBookings();
         setReplaceData({
           newCarId: "",
           transactionId: "",
@@ -2732,7 +2720,7 @@ const Bookings = () => {
       });
 
       await fetchBookings(currentPage);
-      await fetchAllBookings(); // refresh all bookings
+      await fetchAllBookings();
       setShowEditModal(false);
       toast.success("Booking updated successfully!");
     } catch (error) {
@@ -2746,7 +2734,7 @@ const Bookings = () => {
       try {
         await axios.delete(`https://varahibackend.varahiselfdrivecars.com/api/admin/deletebooking/${bookingId}`);
         await fetchBookings(currentPage);
-        await fetchAllBookings(); // refresh all bookings
+        await fetchAllBookings();
         toast.success("Booking deleted successfully!");
       } catch (error) {
         console.error("Error deleting booking:", error);
@@ -2776,27 +2764,6 @@ const Bookings = () => {
     }
   };
 
-  const getExtensionBadge = (extensions) => {
-    if (!extensions || extensions.length === 0) {
-      return <Badge bg="secondary">No Extensions</Badge>;
-    }
-    return <Badge bg="info">{extensions.length} Extension{extensions.length > 1 ? 's' : ''}</Badge>;
-  };
-
-  const getReplacementBadge = (booking) => {
-    const hasReplacement = booking?.carReplacementHistory && 
-      booking.carReplacementHistory.length > 0;
-
-    if (hasReplacement) {
-      return (
-        <Badge bg="warning" className="ms-1">
-          Car Replaced
-        </Badge>
-      );
-    }
-    return null;
-  };
-
   const getReplacementStatus = (booking) => {
     const hasReplacement = booking?.carReplacementHistory && 
       booking.carReplacementHistory.length > 0;
@@ -2815,9 +2782,7 @@ const Bookings = () => {
     );
   };
 
-  // Updated pagination render function
   const renderPagination = () => {
-    // If search or date filters are active, we show all results on one page (no pagination)
     if (searchQuery !== "" || startDateFilter || endDateFilter || createdDateFilter) return null;
     
     if (!pagination.totalPages || pagination.totalPages < 1) return null;
@@ -2826,11 +2791,9 @@ const Bookings = () => {
     const pageSet = new Set();
 
     pageSet.add(1);
-
     if (pagination.totalPages > 1) {
       pageSet.add(pagination.totalPages);
     }
-
     if (pagination.currentPage > 1) pageSet.add(pagination.currentPage - 1);
     pageSet.add(pagination.currentPage);
     if (pagination.currentPage < pagination.totalPages) pageSet.add(pagination.currentPage + 1);
@@ -2875,7 +2838,6 @@ const Bookings = () => {
     );
   };
 
-  // Handle page change
   const handlePageChange = (page) => {
     fetchBookings(page);
   };
@@ -2885,7 +2847,6 @@ const Bookings = () => {
       setIsDownloading(true);
       toast.info('Preparing filtered booking report...', { autoClose: 2000 });
 
-      // Use filteredBookings for export
       const dataToExport = filteredBookings.map(booking => ({
         'Booking ID': booking._id || '-',
         'User Name': booking.userId?.name || '-',
@@ -2894,6 +2855,9 @@ const Bookings = () => {
         'Car Name': booking.car?.carName || '-',
         'Car Model': booking.car?.model || '-',
         'Vehicle Number': booking.car?.vehicleNumber || '-',
+        'Owner Name': booking.car?.owner?.fullName || '-',
+        'Owner Email': booking.car?.owner?.email || '-',
+        'Owner Mobile': booking.car?.owner?.mobileNumber || '-',
         'Car Replacement': booking.carReplacementHistory && booking.carReplacementHistory.length > 0 ? 'Yes' : 'No',
         'Original Car': booking.carReplacementHistory && booking.carReplacementHistory.length > 0 
           ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.oldCarId?.carName || '-') 
@@ -2963,10 +2927,10 @@ const Bookings = () => {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Bookings");
 
-      // Set column widths
       const wscols = [
         { wch: 25 }, { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 15 },
-        { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 18 },
+        { wch: 20 }, { wch: 25 }, { wch: 15 },
+        { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 18 },
         { wch: 18 }, { wch: 15 }, { wch: 50 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 20 },
         { wch: 12 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 12 }, { wch: 15 },
         { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 20 },
@@ -3024,7 +2988,7 @@ const Bookings = () => {
         <>
           <div>
             <strong>Current Car:</strong> {booking.car?.carName || 'N/A'}
-            {getReplacementBadge(booking)}
+            <Badge bg="warning" className="ms-1">Car Replaced</Badge>
           </div>
         </>
       );
@@ -3064,7 +3028,6 @@ const Bookings = () => {
     );
   };
 
-  // Pagination info text
   const getPaginationInfo = () => {
     if (searchQuery !== "" || startDateFilter || endDateFilter || createdDateFilter) {
       return `Showing ${filteredBookings.length} of ${filteredBookings.length} filtered bookings`;
@@ -3082,7 +3045,6 @@ const Bookings = () => {
         </Badge>
       </div>
 
-      {/* Filter Section */}
       <Row className="mb-3">
         <Col md={2}>
           <Form.Select value={filterField} onChange={(e) => setFilterField(e.target.value)}>
@@ -3172,7 +3134,6 @@ const Bookings = () => {
         </Col>
       </Row>
 
-      {/* Clear Filters Button */}
       <Row className="mb-3">
         <Col md={12}>
           <Button 
@@ -3191,7 +3152,6 @@ const Bookings = () => {
         </Col>
       </Row>
 
-      {/* Table Section */}
       <div className="table-responsive">
         {isLoading ? (
           <div className="text-center py-5">
@@ -3211,6 +3171,7 @@ const Bookings = () => {
                   <th>Email</th>
                   <th>Car</th>
                   <th>Model</th>
+                  <th>Owner</th>
                   <th>Replaced</th>
                   <th>Extensions</th>
                   <th>Rental Start Date</th>
@@ -3237,6 +3198,7 @@ const Bookings = () => {
                       <td>{booking.userId?.email || 'N/A'}</td>
                       <td>{renderCarInfo(booking)}</td>
                       <td>{renderCarModel(booking)}</td>
+                      <td>{booking.car?.owner?.fullName || 'N/A'}</td>
                       <td>{getReplacementStatus(booking)}</td>
                       <td>{renderExtensions(booking)}</td>
                       <td>{booking.rentalStartDate ? new Date(booking.rentalStartDate).toLocaleDateString() : 'N/A'}</td>
@@ -3249,12 +3211,12 @@ const Bookings = () => {
                         <Badge bg={getStatusBadge(booking.status)} className="text-capitalize">
                           {booking.status || 'N/A'}
                         </Badge>
-                       </td>
+                      </td>
                       <td>
                         <Badge bg={getPaymentBadge(booking.paymentStatus)} className="text-capitalize">
                           {booking.paymentStatus || 'N/A'}
                         </Badge>
-                       </td>
+                      </td>
                       <td>
                         {booking.otp || 'N/A'}
                         {!booking.otp && (
@@ -3268,7 +3230,7 @@ const Bookings = () => {
                             <i className="fas fa-key"></i>
                           </Button>
                         )}
-                       </td>
+                      </td>
                       <td>{booking.returnOTP || 'N/A'}</td>
                       <td className="text-center align-middle">
                         <Button variant="outline-warning" size="sm" className="me-1 mb-1 mt-1" onClick={() => handleEdit(booking)}>
@@ -3293,14 +3255,13 @@ const Bookings = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="20" className="text-center">No bookings found</td>
+                    <td colSpan="21" className="text-center">No bookings found</td>
                   </tr>
                 )}
               </tbody>
             </Table>
             {renderPagination()}
             
-            {/* Pagination Info */}
             <div className="text-center text-muted mt-2">
               <small>
                 {getPaginationInfo()}
@@ -3310,7 +3271,6 @@ const Bookings = () => {
         )}
       </div>
 
-      {/* All Modals remain exactly the same as before */}
       {/* Edit Modal */}
       <Modal show={showEditModal} onHide={() => setShowEditModal(false)}>
         <Modal.Header closeButton>
@@ -3693,7 +3653,7 @@ const Bookings = () => {
                   <tbody>
                     {selectedBooking.extensions.map((ext, index) => (
                       <tr key={ext._id || index}>
-                        <td>{index + 1}</td>
+                        <td className="text-center">{index + 1}</td>
                         <td>{ext.extendDeliveryDate || '-'}</td>
                         <td>{ext.extendDeliveryTime || '-'}</td>
                         <td>{ext.hours || '-'}</td>
@@ -3736,7 +3696,7 @@ const Bookings = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* Details Modal - Keep same as before */}
+      {/* Details Modal */}
       <Modal show={showDetailsModal} onHide={() => setShowDetailsModal(false)} size="xl" centered scrollable>
         <Modal.Header closeButton>
           <Modal.Title>Booking Details</Modal.Title>
@@ -3811,6 +3771,7 @@ const Bookings = () => {
                     </div>
                   )}
                 </div>
+
                 <div>
                   <h5 className="mt-4 text-primary">Deposit PDF</h5>
                   <div className="mb-3">
@@ -3894,7 +3855,7 @@ const Bookings = () => {
                         <tbody>
                           {bookingDetails.extensions.map((ext, index) => (
                             <tr key={ext._id || index}>
-                              <td>{index + 1}</td>
+                              <td className="text-center">{index + 1}</td>
                               <td>{ext.extendDeliveryDate || '-'}</td>
                               <td>{ext.extendDeliveryTime || '-'}</td>
                               <td>{ext.hours || '-'}</td>
@@ -4076,6 +4037,9 @@ const Bookings = () => {
                   {replacedCarDetails.newCar?.branch && (
                     <p><strong>Branch:</strong> {replacedCarDetails.newCar.branch.name}</p>
                   )}
+                  <p><strong>Owner Name:</strong> {bookingDetails.car?.owner?.fullName || 'N/A'}</p>
+                  <p><strong>Owner Email:</strong> {bookingDetails.car?.owner?.email || 'N/A'}</p>
+                  <p><strong>Owner Mobile:</strong> {bookingDetails.car?.owner?.mobileNumber || 'N/A'}</p>
                 </div>
 
                 {replacedCarDetails.newCar && (

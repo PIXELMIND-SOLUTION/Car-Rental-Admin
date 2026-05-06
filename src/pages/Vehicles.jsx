@@ -121,6 +121,9 @@ const Vehicles = () => {
           case 'branchName':
             value = v.branch?.name || '';
             break;
+          case 'ownerName':
+            value = v.ownerId?.fullName || '';
+            break;
           default:
             value = '';
         }
@@ -413,6 +416,7 @@ const Vehicles = () => {
         Images: (v.carImage || []).join(', ') || '-',
         Documents: (v.carDocs || []).join(', ') || '-',
         IsPremium: v.isPremium ? 'Yes' : 'No',
+        OwnerName: v.ownerId?.fullName || '-',
         TotalBookings: v.bookedStatus?.length || 0
       }));
 
@@ -426,7 +430,8 @@ const Vehicles = () => {
         { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 10 },
         { wch: 10 }, { wch: 15 }, { wch: 20 }, { wch: 30 },
         { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 20 },
-        { wch: 25 }, { wch: 40 }, { wch: 40 }, { wch: 10 }, { wch: 15 }
+        { wch: 25 }, { wch: 40 }, { wch: 40 }, { wch: 10 },
+        { wch: 20 }, { wch: 15 }
       ];
 
       const headerStyle = {
@@ -689,13 +694,14 @@ const Vehicles = () => {
             <option value="carType">Search by Car Type</option>
             <option value="fuel">Search by Fuel Type</option>
             <option value="isPremium">Search by Premium Status</option>
+            <option value="ownerName">Search by Owner Name</option>
           </Form.Select>
         </div>
         <div className="col-md-5">
           <InputGroup>
             <FormControl
               type="text"
-              placeholder={`Search by ${searchType}`}
+              placeholder={`Search by ${searchType === 'ownerName' ? 'Owner Name' : searchType}`}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
             />
@@ -768,6 +774,7 @@ const Vehicles = () => {
                   <th>Status</th>
                   <th>Bookings</th>
                   <th>Premium</th>
+                  <th>Owner</th>
                   <th>Fuel</th>
                   <th>Seats</th>
                   <th>Type</th>
@@ -783,7 +790,7 @@ const Vehicles = () => {
               <tbody>
                 {paginatedVehicles.length === 0 ? (
                   <tr>
-                    <td colSpan="24" className="text-center">No vehicles match your search criteria.</td>
+                    <td colSpan="25" className="text-center">No vehicles match your search criteria.</td>
                   </tr>
                 ) : (
                   paginatedVehicles.map((vehicle, index) => (
@@ -822,6 +829,9 @@ const Vehicles = () => {
                         <span className={`badge bg-${vehicle.isPremium ? 'warning' : 'secondary'}`}>
                           {vehicle.isPremium ? 'Premium' : 'Standard'}
                         </span>
+                      </td>
+                      <td>
+                        {vehicle.ownerId?.fullName || '-'}
                       </td>
                       <td>{vehicle.fuel}</td>
                       <td>{vehicle.seats}</td>
@@ -862,7 +872,7 @@ const Vehicles = () => {
         </>
       )}
 
-      {/* Add/Edit Modal */}
+      {/* Add/Edit Modal (unchanged) */}
       <Modal show={showModal} onHide={closeModal} centered size="lg">
         <Modal.Header closeButton>
           <Modal.Title>{editingVehicle ? 'Edit Vehicle' : 'Add Vehicle'}</Modal.Title>
@@ -1083,7 +1093,7 @@ const Vehicles = () => {
         </Modal.Body>
       </Modal>
 
-      {/* View Vehicle Modal */}
+      {/* View Vehicle Modal - Added Owner Info */}
       <Modal show={showViewModal} onHide={closeViewModal} centered size="lg" scrollable>
         <Modal.Header closeButton>
           <Modal.Title>Vehicle Details</Modal.Title>
@@ -1133,6 +1143,10 @@ const Vehicles = () => {
                     {(viewVehicle.car?.isPremium || viewVehicle.isPremium) ? 'Premium Vehicle' : 'Standard Vehicle'}
                   </span>
                 </div>
+                {/* Owner Info Added */}
+                <div className="mb-3">
+                  <strong>Owner:</strong> {viewVehicle.car?.ownerId?.fullName || viewVehicle.ownerId?.fullName || '-'}
+                </div>
               </div>
 
               {/* Right Column */}
@@ -1171,8 +1185,6 @@ const Vehicles = () => {
                   <strong>Total Bookings:</strong>
                   <span className="badge bg-info ms-2">{viewVehicle.bookings?.length || 0}</span>
                 </div>
-                
-                {/* NEW: Total Revenue Field */}
                 <div className="mb-3">
                   <strong>Total Revenue:</strong>
                   <span className="badge bg-success ms-2 fs-6">₹{viewVehicle.totalRevenue || 0}</span>
@@ -1258,8 +1270,9 @@ const Vehicles = () => {
                 )}
               </div>
 
-              {/* Detailed Bookings Table with Date Filters */}
+              {/* Detailed Bookings History (unchanged) */}
               <div className="col-12 mt-4">
+                {/* ... Detailed Bookings Table ... (same as original) */}
                 <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap">
                   <div className="d-flex align-items-center flex-wrap">
                     <h5 className="mb-0 me-3">Detailed Bookings History</h5>
@@ -1268,8 +1281,6 @@ const Vehicles = () => {
                         Total: {viewVehicle.bookings.length}
                       </span>
                     )}
-                    
-                    {/* Date Filter Inputs with proper labels */}
                     <div className="d-flex align-items-center gap-3 flex-wrap">
                       <div className="d-flex flex-column">
                         <Form.Label className="small fw-bold mb-1">Rental Start Date</Form.Label>
@@ -1337,8 +1348,6 @@ const Vehicles = () => {
                     </Button>
                   )}
                 </div>
-                
-                {/* Active Filter Indicators */}
                 {(rentalStartDateFilter || rentalEndDateFilter || bookingCreatedDateFilter) && (
                   <div className="alert alert-info mb-3 py-2">
                     <i className="fas fa-filter me-2"></i>
@@ -1348,7 +1357,6 @@ const Vehicles = () => {
                     {bookingCreatedDateFilter && <span className="ms-2 badge bg-primary">Created: {bookingCreatedDateFilter}</span>}
                   </div>
                 )}
-                
                 {viewVehicle.bookings && viewVehicle.bookings.length > 0 ? (
                   <div className="table-responsive">
                     <table className="table table-bordered table-hover">
@@ -1372,7 +1380,6 @@ const Vehicles = () => {
                       </thead>
                       <tbody>
                         {viewVehicle.bookings.map((booking, index) => {
-                          // Apply date filters
                           const bookingStartDate = booking.rentalStartDate ? new Date(booking.rentalStartDate).toISOString().split('T')[0] : '';
                           const bookingEndDate = booking.rentalEndDate ? new Date(booking.rentalEndDate).toISOString().split('T')[0] : '';
                           const bookingCreatedDate = booking.createdAt ? new Date(booking.createdAt).toISOString().split('T')[0] : '';
@@ -1388,29 +1395,23 @@ const Vehicles = () => {
                           return (
                             <tr key={booking._id || index}>
                               <td>{index + 1}</td>
-                              <td>
-                                <small>{booking._id?.slice(-8) || '-'}</small>
-                              </td>
+                              <td><small>{booking._id?.slice(-8) || '-'}</small></td>
                               <td>
                                 {booking.userId?.name || '-'}
-                                <br/>
-                                <small className="text-muted">{booking.userId?.email || ''}</small>
+                                <br/><small className="text-muted">{booking.userId?.email || ''}</small>
                               </td>
                               <td>{booking.userId?.mobile || '-'}</td>
                               <td>
                                 {booking.rentalStartDate ? new Date(booking.rentalStartDate).toLocaleDateString() : '-'}
-                                <br/>
-                                <small>{booking.from || ''}</small>
+                                <br/><small>{booking.from || ''}</small>
                               </td>
                               <td>
                                 {booking.rentalEndDate ? new Date(booking.rentalEndDate).toLocaleDateString() : '-'}
-                                <br/>
-                                <small>{booking.to || ''}</small>
+                                <br/><small>{booking.to || ''}</small>
                               </td>
                               <td>
                                 {booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : '-'}
-                                <br/>
-                                <small>{booking.createdAt ? new Date(booking.createdAt).toLocaleTimeString() : ''}</small>
+                                <br/><small>{booking.createdAt ? new Date(booking.createdAt).toLocaleTimeString() : ''}</small>
                               </td>
                               <td>₹{booking.totalPrice || 0}</td>
                               <td>
@@ -1432,9 +1433,7 @@ const Vehicles = () => {
                               </td>
                               <td>{booking.otp || '-'}</td>
                               <td>{booking.returnOTP || '-'}</td>
-                              <td>
-                                <small>{booking.transactionId?.slice(-10) || '-'}</small>
-                              </td>
+                              <td><small>{booking.transactionId?.slice(-10) || '-'}</small></td>
                               <td>
                                 <button
                                   className="btn btn-sm btn-outline-info"
@@ -1449,19 +1448,15 @@ const Vehicles = () => {
                         }).filter(Boolean)}
                       </tbody>
                     </table>
-                    
-                    {/* Show count of filtered results */}
                     {(() => {
                       const filteredCount = viewVehicle.bookings.filter(booking => {
                         const startDate = booking.rentalStartDate ? new Date(booking.rentalStartDate).toISOString().split('T')[0] : '';
                         const endDate = booking.rentalEndDate ? new Date(booking.rentalEndDate).toISOString().split('T')[0] : '';
                         const createdDate = booking.createdAt ? new Date(booking.createdAt).toISOString().split('T')[0] : '';
-                        
                         return (!rentalStartDateFilter || startDate === rentalStartDateFilter) &&
                                (!rentalEndDateFilter || endDate === rentalEndDateFilter) &&
                                (!bookingCreatedDateFilter || createdDate === bookingCreatedDateFilter);
                       }).length;
-                      
                       if (filteredCount < viewVehicle.bookings.length) {
                         return (
                           <div className="text-muted mt-2">
@@ -1473,9 +1468,7 @@ const Vehicles = () => {
                     })()}
                   </div>
                 ) : (
-                  <div className="alert alert-info">
-                    No detailed booking history available for this vehicle.
-                  </div>
+                  <div className="alert alert-info">No detailed booking history available for this vehicle.</div>
                 )}
               </div>
             </div>
@@ -1488,7 +1481,7 @@ const Vehicles = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* View Booking Modal */}
+      {/* View Booking Modal (unchanged) */}
       <Modal show={showBookingViewModal} onHide={closeBookingViewModal} centered size="lg" scrollable>
         <Modal.Header closeButton>
           <Modal.Title>Booking Details</Modal.Title>
@@ -1496,15 +1489,12 @@ const Vehicles = () => {
         <Modal.Body>
           {viewBooking ? (
             <div className="row">
-              {/* User Information */}
               <div className="col-md-6">
                 <h5 className="text-primary mb-3">User Information</h5>
                 <div className="mb-2"><strong>Name:</strong> {viewBooking.userId?.name || '-'}</div>
                 <div className="mb-2"><strong>Email:</strong> {viewBooking.userId?.email || '-'}</div>
                 <div className="mb-2"><strong>Mobile:</strong> {viewBooking.userId?.mobile || '-'}</div>
               </div>
-
-              {/* Booking Information */}
               <div className="col-md-6">
                 <h5 className="text-primary mb-3">Booking Information</h5>
                 <div className="mb-2"><strong>Booking ID:</strong> {viewBooking._id || '-'}</div>
@@ -1513,8 +1503,6 @@ const Vehicles = () => {
                 <div className="mb-2"><strong>Created At:</strong> {viewBooking.createdAt ? new Date(viewBooking.createdAt).toLocaleString() : '-'}</div>
                 <div className="mb-2"><strong>Updated At:</strong> {viewBooking.updatedAt ? new Date(viewBooking.updatedAt).toLocaleString() : '-'}</div>
               </div>
-
-              {/* Rental Details */}
               <div className="col-12 mt-3">
                 <h5 className="text-primary mb-3">Rental Details</h5>
                 <div className="row">
@@ -1531,8 +1519,6 @@ const Vehicles = () => {
                   </div>
                 </div>
               </div>
-
-              {/* Status & OTP */}
               <div className="col-12 mt-3">
                 <h5 className="text-primary mb-3">Status Information</h5>
                 <div className="row">
@@ -1567,8 +1553,6 @@ const Vehicles = () => {
                   </div>
                 </div>
               </div>
-
-              {/* PDF Links */}
               {(viewBooking.depositPDF || viewBooking.finalBookingPDF) && (
                 <div className="col-12 mt-3">
                   <h5 className="text-primary mb-3">Documents</h5>
@@ -1596,8 +1580,6 @@ const Vehicles = () => {
                   </div>
                 </div>
               )}
-
-              {/* Return Details */}
               {viewBooking.returnDetails && viewBooking.returnDetails.length > 0 && (
                 <div className="col-12 mt-3">
                   <h5 className="text-primary mb-3">Return Details</h5>
@@ -1614,8 +1596,6 @@ const Vehicles = () => {
                   ))}
                 </div>
               )}
-
-              {/* Car Replacement History */}
               {viewBooking.carReplacementHistory && viewBooking.carReplacementHistory.length > 0 && (
                 <div className="col-12 mt-3">
                   <h5 className="text-primary mb-3">Car Replacement History</h5>

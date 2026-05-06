@@ -17,6 +17,7 @@ import PrivateRoute from './components/PrivateRoute'; // import your new private
 import MaintenanceSettings from './pages/Maintanence';
 import PremiumDeposits from './pages/PremiumDeposits';
 import PaymentLogs from './pages/PaymentLogs';
+import Owners from './pages/Owners';
 
 function App() {
   return (
@@ -41,6 +42,7 @@ function App() {
             <Route path="premium-deposits" element={<PremiumDeposits />} />
             <Route path="settings" element={<Settings />} />
              <Route path="paymentlogs" element={<PaymentLogs />} />
+            <Route path="owners" element={<Owners />} />
           </Route>
         </Route>
       </Routes>
