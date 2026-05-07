@@ -18,6 +18,8 @@ import MaintenanceSettings from './pages/Maintanence';
 import PremiumDeposits from './pages/PremiumDeposits';
 import PaymentLogs from './pages/PaymentLogs';
 import Owners from './pages/Owners';
+import OwnerVehicles from './pages/OwnerVehicles';
+import OwnerBookings from './pages/OwnerBookings';
 
 function App() {
   return (
@@ -43,6 +45,8 @@ function App() {
             <Route path="settings" element={<Settings />} />
              <Route path="paymentlogs" element={<PaymentLogs />} />
             <Route path="owners" element={<Owners />} />
+            <Route path="owner-cars" element={<OwnerVehicles />} />
+            <Route path="owner-bookings" element={<OwnerBookings />} />
           </Route>
         </Route>
       </Routes>
