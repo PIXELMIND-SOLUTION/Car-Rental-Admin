@@ -672,49 +672,76 @@ const Vehicles = () => {
         </div>
       </div>      
 
-      {/* Main Filters Row */}
-      <div className="row mb-3">
-        <div className="col-md-3">
-          <Form.Select
-            value={searchType}
-            onChange={(e) => setSearchType(e.target.value)}
-          >
-            <option value="carName">Search by Car Name</option>
-            <option value="model">Search by Model</option>
-            <option value="location">Search by Location</option>
-            <option value="status">Search by Status</option>
-            <option value="vehicleNumber">Search by Vehicle Number</option>
-            <option value="runningStatus">Search by Running Status</option>
-            <option value="branchName">Search by Branch Name</option>
-            <option value="type">Search by Transmission Type</option>
-            <option value="carType">Search by Car Type</option>
-            <option value="fuel">Search by Fuel Type</option>
-            <option value="isPremium">Search by Premium Status</option>
-          </Form.Select>
-        </div>
-        <div className="col-md-4">
-          <div className="d-flex justify-content-end">
-            <Button 
-              variant={showPremiumOnly ? "warning" : "outline-warning"} 
-              className="me-2"
-              onClick={togglePremiumFilter}
-            >
-              <i className="fas fa-crown me-2"></i>
-              {showPremiumOnly ? "Show All Cars" : "Premium Cars Only"}
-            </Button>
-            <Button variant="info" className="me-2" onClick={handleRefresh}>
-              <i className="fas fa-sync-alt"></i> Refresh
-            </Button>
-            <Button
-              variant="success"
-              onClick={handleDownload}
-              disabled={vehicles.length === 0}
-            >
-              <i className="fas fa-file-excel me-2"></i>Export
-            </Button>
-          </div>
-        </div>
-      </div>
+      <div className="row mb-3 align-items-center">
+  <div className="col-md-3">
+    <Form.Select
+      value={searchType}
+      onChange={(e) => setSearchType(e.target.value)}
+    >
+      <option value="carName">Search by Car Name</option>
+      <option value="model">Search by Model</option>
+      <option value="location">Search by Location</option>
+      <option value="status">Search by Status</option>
+      <option value="vehicleNumber">Search by Vehicle Number</option>
+      <option value="runningStatus">Search by Running Status</option>
+      <option value="branchName">Search by Branch Name</option>
+      <option value="type">Search by Transmission Type</option>
+      <option value="carType">Search by Car Type</option>
+      <option value="fuel">Search by Fuel Type</option>
+      <option value="isPremium">Search by Premium Status</option>
+    </Form.Select>
+  </div>
+
+  <div className="col-md-4">
+    <InputGroup>
+      <FormControl
+        type="text"
+        placeholder={`Search by ${searchType}...`}
+        value={searchText}
+        onChange={(e) => setSearchText(e.target.value)}
+      />
+
+      {searchText && (
+        <Button
+          variant="outline-secondary"
+          onClick={() => setSearchText('')}
+        >
+          Clear
+        </Button>
+      )}
+    </InputGroup>
+  </div>
+
+  <div className="col-md-5">
+    <div className="d-flex justify-content-end flex-wrap">
+      <Button
+        variant={showPremiumOnly ? "warning" : "outline-warning"}
+        className="me-2 mb-2"
+        onClick={togglePremiumFilter}
+      >
+        <i className="fas fa-crown me-2"></i>
+        {showPremiumOnly ? "Show All Cars" : "Premium Cars Only"}
+      </Button>
+
+      <Button
+        variant="info"
+        className="me-2 mb-2"
+        onClick={handleRefresh}
+      >
+        <i className="fas fa-sync-alt"></i> Refresh
+      </Button>
+
+      <Button
+        variant="success"
+        className="mb-2"
+        onClick={handleDownload}
+        disabled={vehicles.length === 0}
+      >
+        <i className="fas fa-file-excel me-2"></i>Export
+      </Button>
+    </div>
+  </div>
+</div>
 
       {loading ? (
         <div className="text-center py-5">
