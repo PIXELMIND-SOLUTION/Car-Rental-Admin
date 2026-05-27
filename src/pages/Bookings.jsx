@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
-import { Table, Button, Modal, Form, Pagination, Badge, Row, Col, InputGroup, Card } from "react-bootstrap";
+import { Table, Button, Modal, Form, Pagination, Badge, Row, Col, InputGroup, Card, Spinner } from "react-bootstrap";
 import { ToastContainer, toast } from 'react-toastify';
 import * as XLSX from "xlsx";
 import 'react-toastify/dist/ReactToastify.css';
@@ -72,9 +72,9 @@ const Bookings = () => {
     hasPrevPage: false
   });
   
-  // Date Filters
-  const [startDateFilter, setStartDateFilter] = useState("");
-  const [endDateFilter, setEndDateFilter] = useState("");
+  // Date Filters - Using string format for native date inputs
+  const [rentalStartDateFilter, setRentalStartDateFilter] = useState("");
+  const [rentalEndDateFilter, setRentalEndDateFilter] = useState("");
   const [createdDateFilter, setCreatedDateFilter] = useState("");
   
   // Loading state
@@ -85,11 +85,19 @@ const Bookings = () => {
   
   const bookingsPerPage = 10;
 
-  // Fetch bookings with pagination
-  const fetchBookings = async (page = 1) => {
+  // Fetch bookings with pagination and filters
+  const fetchBookings = async (page = 1, searchBy = null, searchValue = null) => {
     try {
       setIsLoading(true);
-      const response = await axios.get(`https://varahibackend.varahiselfdrivecars.com/api/staff/allbookingsforadmin?page=${page}&limit=${bookingsPerPage}`);
+      
+      let url = `https://varahibackend.varahiselfdrivecars.com/api/staff/allbookingsforadmin?page=${page}&limit=${bookingsPerPage}`;
+      
+      // Add search parameters if provided
+      if (searchBy && searchValue) {
+        url += `&searchBy=${searchBy}&searchValue=${searchValue}`;
+      }
+      
+      const response = await axios.get(url);
       
       if (response.data?.bookings) {
         setBookings(response.data.bookings);
@@ -167,69 +175,54 @@ const Bookings = () => {
     }
   };
 
-  const filterBookings = useCallback(() => {
-    let filtered = bookings.filter((booking) => {
-      // Apply search filter
-      const fieldVal = (() => {
-        switch (filterField) {
-          case "id":
-            return booking._id || '';
-          case "name":
-            return booking.userId?.name || '';
-          case "email":
-            return booking.userId?.email || '';
-          case "pickuplocation":
-            return booking.pickupLocation || '';
-          case "status":
-            return booking.status || '';
-          case "paymentstatus":
-            return booking.paymentStatus || '';
-          case "rentalstartdate":
-            return booking.rentalStartDate ? new Date(booking.rentalStartDate).toLocaleDateString() : '';
-          case "rentalenddate":
-            return booking.rentalEndDate ? new Date(booking.rentalEndDate).toLocaleDateString() : '';
-          case "createdat":
-            return booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : '';
-          case "replaced":
-            const hasReplacement = booking.carReplacementHistory && 
-              booking.carReplacementHistory.length > 0;
-            return hasReplacement ? "Yes" : "No";
-          case "extensions":
-            const extensionCount = booking.extensions?.length || 0;
-            return extensionCount > 0 ? "Extended" : "Not Extended";
-          default:
-            return "";
+  // Handle search with API
+  const handleSearch = useCallback(async () => {
+    if (searchQuery.trim()) {
+      let searchBy = filterField;
+      let searchValue = searchQuery;
+      
+      await fetchBookings(1, searchBy, searchValue);
+    } else {
+      await fetchBookings(1);
+    }
+  }, [searchQuery, filterField]);
+
+  // Apply date filters client-side when dates are selected without search query
+  const filterByDates = useCallback(async () => {
+    if (rentalStartDateFilter || rentalEndDateFilter || createdDateFilter) {
+      setIsLoading(true);
+      try {
+        // Build URL with date parameters
+        let url = `https://varahibackend.varahiselfdrivecars.com/api/staff/allbookingsforadmin?page=1&limit=${bookingsPerPage}`;
+        
+        if (rentalStartDateFilter) {
+          url += `&rentalstartdate=${rentalStartDateFilter}`;
         }
-      })();
-      
-      const matchesSearch = fieldVal.toString().toLowerCase().includes(searchQuery.toLowerCase());
-      
-      // Apply date filters
-      let matchesStartDate = true;
-      let matchesEndDate = true;
-      let matchesCreatedDate = true;
-      
-      if (startDateFilter) {
-        const bookingStartDate = booking.rentalStartDate ? new Date(booking.rentalStartDate).toISOString().split('T')[0] : '';
-        matchesStartDate = bookingStartDate === startDateFilter;
+        if (rentalEndDateFilter) {
+          url += `&rentalenddate=${rentalEndDateFilter}`;
+        }
+        if (createdDateFilter) {
+          url += `&createdat=${createdDateFilter}`;
+        }
+        
+        const response = await axios.get(url);
+        
+        if (response.data?.bookings) {
+          setBookings(response.data.bookings);
+          setFilteredBookings(response.data.bookings);
+          setPagination(response.data.pagination);
+          setCurrentPage(1);
+        }
+      } catch (error) {
+        console.error("Error filtering by dates:", error);
+        toast.error("Failed to filter bookings by date.");
+      } finally {
+        setIsLoading(false);
       }
-      
-      if (endDateFilter) {
-        const bookingEndDate = booking.rentalEndDate ? new Date(booking.rentalEndDate).toISOString().split('T')[0] : '';
-        matchesEndDate = bookingEndDate === endDateFilter;
-      }
-      
-      if (createdDateFilter) {
-        const bookingCreatedDate = booking.createdAt ? new Date(booking.createdAt).toISOString().split('T')[0] : '';
-        matchesCreatedDate = bookingCreatedDate === createdDateFilter;
-      }
-      
-      return matchesSearch && matchesStartDate && matchesEndDate && matchesCreatedDate;
-    });
-    
-    setFilteredBookings(filtered);
-    setCurrentPage(1);
-  }, [bookings, searchQuery, filterField, startDateFilter, endDateFilter, createdDateFilter]);
+    } else {
+      await fetchBookings(1);
+    }
+  }, [rentalStartDateFilter, rentalEndDateFilter, createdDateFilter]);
 
   useEffect(() => {
     fetchBookings();
@@ -237,8 +230,10 @@ const Bookings = () => {
   }, []);
 
   useEffect(() => {
-    filterBookings();
-  }, [filterBookings]);
+    if (!searchQuery.trim()) {
+      filterByDates();
+    }
+  }, [filterByDates, searchQuery]);
 
   const handleEdit = (booking) => {
     setSelectedBooking({
@@ -676,13 +671,6 @@ const Bookings = () => {
     }
   };
 
-  const getExtensionBadge = (extensions) => {
-    if (!extensions || extensions.length === 0) {
-      return <Badge bg="secondary">No Extensions</Badge>;
-    }
-    return <Badge bg="info">{extensions.length} Extension{extensions.length > 1 ? 's' : ''}</Badge>;
-  };
-
   const getReplacementBadge = (booking) => {
     const hasReplacement = booking?.carReplacementHistory && 
       booking.carReplacementHistory.length > 0;
@@ -715,7 +703,6 @@ const Bookings = () => {
     );
   };
 
-  // Updated pagination render function
   const renderPagination = () => {
     if (!pagination.totalPages || pagination.totalPages < 1) return null;
 
@@ -772,9 +759,29 @@ const Bookings = () => {
     );
   };
 
-  // Handle page change
   const handlePageChange = (page) => {
-    fetchBookings(page);
+    if (searchQuery.trim()) {
+      fetchBookings(page, filterField, searchQuery);
+    } else if (rentalStartDateFilter || rentalEndDateFilter || createdDateFilter) {
+      let url = `https://varahibackend.varahiselfdrivecars.com/api/staff/allbookingsforadmin?page=${page}&limit=${bookingsPerPage}`;
+      if (rentalStartDateFilter) url += `&rentalstartdate=${rentalStartDateFilter}`;
+      if (rentalEndDateFilter) url += `&rentalenddate=${rentalEndDateFilter}`;
+      if (createdDateFilter) url += `&createdat=${createdDateFilter}`;
+      
+      axios.get(url).then(response => {
+        if (response.data?.bookings) {
+          setBookings(response.data.bookings);
+          setFilteredBookings(response.data.bookings);
+          setPagination(response.data.pagination);
+          setCurrentPage(page);
+        }
+      }).catch(error => {
+        console.error("Error fetching bookings:", error);
+        toast.error("Failed to fetch bookings.");
+      });
+    } else {
+      fetchBookings(page);
+    }
   };
 
   const handleDownloadExcel = async () => {
@@ -782,7 +789,6 @@ const Bookings = () => {
       setIsDownloading(true);
       toast.info('Preparing filtered booking report...', { autoClose: 2000 });
 
-      // Use filteredBookings for export
       const dataToExport = filteredBookings.map(booking => ({
         'Booking ID': booking._id || '-',
         'User Name': booking.userId?.name || '-',
@@ -860,7 +866,6 @@ const Bookings = () => {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Bookings");
 
-      // Set column widths
       const wscols = [
         { wch: 25 }, { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 15 },
         { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 18 },
@@ -875,37 +880,17 @@ const Bookings = () => {
       const dateStr = new Date().toISOString().split('T')[0];
       let filename = `bookings_${dateStr}`;
       
-      if (startDateFilter || endDateFilter || createdDateFilter) {
+      if (rentalStartDateFilter || rentalEndDateFilter || createdDateFilter) {
         filename += '_filtered';
-        if (startDateFilter) filename += `_start_${startDateFilter}`;
-        if (endDateFilter) filename += `_end_${endDateFilter}`;
+        if (rentalStartDateFilter) filename += `_start_${rentalStartDateFilter}`;
+        if (rentalEndDateFilter) filename += `_end_${rentalEndDateFilter}`;
         if (createdDateFilter) filename += `_created_${createdDateFilter}`;
       }
       
       filename += '.xlsx';
 
-      setTimeout(() => {
-        try {
-          XLSX.writeFile(wb, filename);
-          toast.success(`${dataToExport.length} bookings exported successfully!`, { autoClose: 2000 });
-        } catch (writeError) {
-          console.error('Error writing file:', writeError);
-          const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
-          const buf = new ArrayBuffer(wbout.length);
-          const view = new Uint8Array(buf);
-          for (let i = 0; i < wbout.length; i++) view[i] = wbout.charCodeAt(i) & 0xFF;
-          const blob = new Blob([buf], { type: 'application/octet-stream' });
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          window.URL.revokeObjectURL(url);
-          toast.success(`${dataToExport.length} bookings exported successfully!`, { autoClose: 2000 });
-        }
-      }, 100);
+      XLSX.writeFile(wb, filename);
+      toast.success(`${dataToExport.length} bookings exported successfully!`, { autoClose: 2000 });
 
     } catch (error) {
       console.error('Error generating Excel report:', error);
@@ -961,190 +946,204 @@ const Bookings = () => {
     );
   };
 
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSearchQuery("");
+    setFilterField("name");
+    setRentalStartDateFilter("");
+    setRentalEndDateFilter("");
+    setCreatedDateFilter("");
+    fetchBookings(1);
+  };
+
   return (
-    <div className="container-fluid mt-4">
+    <div className="container-fluid mt-4 px-3 px-md-4">
       <ToastContainer position="top-right" autoClose={2000} />
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2>Bookings Management</h2>
-        <Badge bg="info" className="p-2">
+      
+      {/* Header Section */}
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <h2 className="mb-0">Bookings Management</h2>
+        <Badge bg="info" className="p-2 align-self-start align-self-md-center">
           Showing {filteredBookings.length} of {pagination.totalBookings} bookings | Page {pagination.currentPage} of {pagination.totalPages}
         </Badge>
       </div>
 
       {/* Filter Section */}
-      <Row className="mb-3">
-        <Col md={2}>
-          <Form.Select value={filterField} onChange={(e) => setFilterField(e.target.value)}>
-            <option value="id">Booking Id</option>
-            <option value="name">Name</option>
-            <option value="email">Email</option>
-            <option value="pickuplocation">Pickup Location</option>
-            <option value="status">Status</option>
-            <option value="paymentstatus">Payment Status</option>
-            <option value="rentalstartdate">Rental Start Date</option>
-            <option value="rentalenddate">Rental End Date</option>
-            <option value="createdat">Booking Created Date</option>
-            <option value="replaced">Car Replacements</option>
-            <option value="extensions">Extensions</option>
-          </Form.Select>
-        </Col>
-        
-        <Col md={3}>
-          <InputGroup>
-            <Form.Control
-              type="text"
-              placeholder={`Search by ${filterField === 'id' ? 'Booking Id'
-                : filterField === 'name' ? 'Name'
-                  : filterField === 'email' ? 'Email'
-                    : filterField === 'pickuplocation' ? 'Pickup Location'
-                      : filterField === 'status' ? 'Status'
-                        : filterField === 'paymentstatus' ? 'Payment Status'
-                          : filterField === 'rentalstartdate' ? 'Rental Start Date'
-                            : filterField === 'rentalenddate' ? 'Rental End Date'
-                              : filterField === 'createdat' ? 'Booking Created Date'
-                                : filterField === 'replaced' ? 'Car Replacements (Yes/No)'
-                                  : filterField === 'extensions' ? 'Extended/Not Extended'
-                                  : ''}`}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </InputGroup>
-        </Col>
-        
-        <Col md={2}>
-          <Form.Control
-            type="date"
-            placeholder="Rental Start Date"
-            value={startDateFilter}
-            onChange={(e) => setStartDateFilter(e.target.value)}
-          />
-          <Form.Text className="text-muted">Rental Start Date</Form.Text>
-        </Col>
-        
-        <Col md={2}>
-          <Form.Control
-            type="date"
-            placeholder="Rental End Date"
-            value={endDateFilter}
-            onChange={(e) => setEndDateFilter(e.target.value)}
-          />
-          <Form.Text className="text-muted">Rental End Date</Form.Text>
-        </Col>
-        
-        <Col md={2}>
-          <Form.Control
-            type="date"
-            placeholder="Booking Created Date"
-            value={createdDateFilter}
-            onChange={(e) => setCreatedDateFilter(e.target.value)}
-          />
-          <Form.Text className="text-muted">Booking Created Date</Form.Text>
-        </Col>
-        
-        <Col md={1} className="text-end">
-          <Button 
-            variant="success" 
-            onClick={handleDownloadExcel}
-            disabled={isDownloading || filteredBookings.length === 0}
-          >
-            {isDownloading ? (
-              <>
-                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                Exporting...
-              </>
+      <Card className="mb-4 shadow-sm">
+        <Card.Body>
+          <Row className="g-3">
+            <Col xs={12} md={3}>
+              <Form.Label className="fw-semibold">Search Field</Form.Label>
+              <Form.Select 
+                value={filterField} 
+                onChange={(e) => setFilterField(e.target.value)}
+                className="w-100"
+              >
+                <option value="id">Booking ID</option>
+                <option value="name">Name</option>
+                <option value="email">Email</option>
+                <option value="pickuplocation">Pickup Location</option>
+                <option value="status">Status</option>
+                <option value="paymentstatus">Payment Status</option>
+                {/* <option value="rentalstartdate">Rental Start Date</option>
+                <option value="rentalenddate">Rental End Date</option>
+                <option value="createdat">Booking Created Date</option>
+                <option value="replaced">Car Replacements</option>
+                <option value="extensions">Extensions</option> */}
+              </Form.Select>
+            </Col>
+            
+            <Col xs={12} md={3}>
+              <Form.Label className="fw-semibold">Search Value</Form.Label>
+              <InputGroup>
+                <Form.Control
+                  type="text"
+                  placeholder={`Search by ${filterField === 'id' ? 'Booking ID'
+                    : filterField === 'name' ? 'Name'
+                      : filterField === 'email' ? 'Email'
+                        : filterField === 'pickuplocation' ? 'Pickup Location'
+                          : filterField === 'status' ? 'Status'
+                            : filterField === 'paymentstatus' ? 'Payment Status'
+                              : filterField === 'replaced' ? 'Yes/No'
+                                : filterField === 'extensions' ? 'Extended/Not Extended'
+                                : 'value'}`}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                />
+                <Button variant="primary" onClick={handleSearch}>
+                  <i className="fas fa-search me-1"></i> Search
+                </Button>
+              </InputGroup>
+            </Col>
+            
+            <Col xs={12} md={2}>
+              <Form.Label className="fw-semibold">Rental Start Date</Form.Label>
+              <Form.Control
+                type="date"
+                value={rentalStartDateFilter}
+                onChange={(e) => setRentalStartDateFilter(e.target.value)}
+              />
+            </Col>
+            
+            <Col xs={12} md={2}>
+              <Form.Label className="fw-semibold">Rental End Date</Form.Label>
+              <Form.Control
+                type="date"
+                value={rentalEndDateFilter}
+                onChange={(e) => setRentalEndDateFilter(e.target.value)}
+              />
+            </Col>
+            
+            <Col xs={12} md={2}>
+              <Form.Label className="fw-semibold">Created Date</Form.Label>
+              <Form.Control
+                type="date"
+                value={createdDateFilter}
+                onChange={(e) => setCreatedDateFilter(e.target.value)}
+              />
+            </Col>
+          </Row>
+          
+          <Row className="mt-3">
+            <Col xs={12} className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <Button 
+                variant="outline-secondary" 
+                size="sm" 
+                onClick={clearAllFilters}
+              >
+                <i className="fas fa-times me-2"></i>Clear All Filters
+              </Button>
+              
+              <Button 
+                variant="success" 
+                size="sm"
+                onClick={handleDownloadExcel}
+                disabled={isDownloading || filteredBookings.length === 0}
+              >
+                {isDownloading ? (
+                  <>
+                    <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-file-excel me-2"></i>Export to Excel
+                  </>
+                )}
+              </Button>
+            </Col>
+          </Row>
+        </Card.Body>
+      </Card>
+
+      {/* Table Section with Scrollable Container */}
+      <Card className="shadow-sm">
+        <Card.Body className="p-0">
+          <div className="table-responsive" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+            {isLoading ? (
+              <div className="text-center py-5">
+                <Spinner animation="border" variant="primary" />
+                <p className="mt-2">Loading bookings...</p>
+              </div>
+            ) : filteredBookings.length === 0 ? (
+              <div className="text-center py-5">
+                <p className="text-muted">No bookings found matching your criteria.</p>
+              </div>
             ) : (
-              <>
-                <i className="fas fa-file-excel me-2"></i>Excel
-              </>
-            )}
-          </Button>
-        </Col>
-      </Row>
-
-      {/* Clear Filters Button */}
-      <Row className="mb-3">
-        <Col md={12}>
-          <Button 
-            variant="secondary" 
-            size="sm" 
-            onClick={() => {
-              setStartDateFilter("");
-              setEndDateFilter("");
-              setCreatedDateFilter("");
-              setSearchQuery("");
-              setFilterField("name");
-            }}
-          >
-            Clear All Filters
-          </Button>
-        </Col>
-      </Row>
-
-      {/* Table Section */}
-      <div className="table-responsive">
-        {isLoading ? (
-          <div className="text-center py-5">
-            <div className="spinner-border text-primary" role="status">
-              <span className="visually-hidden">Loading...</span>
-            </div>
-            <p className="mt-2">Loading bookings...</p>
-          </div>
-        ) : (
-          <>
-            <Table bordered hover responsive>
-              <thead>
-                <tr className="table-header">
-                  <th>S.NO</th>
-                  <th>Booking ID</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Car</th>
-                  <th>Model</th>
-                  <th>Replaced</th>
-                  <th>Extensions</th>
-                  <th>Rental Start Date</th>
-                  <th>Rental End Date</th>
-                  <th>Booking Created Date</th>
-                  <th>Timings</th>
-                  <th>Total Price</th>
-                  <th>Pickup Location</th>
-                  <th>Status</th>
-                  <th>Payment</th>
-                  <th>OTP</th>
-                  <th>Return OTP</th>
-                  <th>Actions</th>
-                  <th>Details</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredBookings.length > 0 ? (
-                  filteredBookings.map((booking, index) => (
+              <Table bordered hover responsive className="mb-0">
+                <thead style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: '#f8f9fa' }}>
+                  <tr className="table-header">
+                    <th style={{ minWidth: '60px' }}>S.NO</th>
+                    <th style={{ minWidth: '100px' }}>Booking ID</th>
+                    <th style={{ minWidth: '120px' }}>Name</th>
+                    <th style={{ minWidth: '180px' }}>Email</th>
+                    <th style={{ minWidth: '140px' }}>Car</th>
+                    <th style={{ minWidth: '120px' }}>Model</th>
+                    <th style={{ minWidth: '100px' }}>Replaced</th>
+                    <th style={{ minWidth: '120px' }}>Extensions</th>
+                    <th style={{ minWidth: '120px' }}>Rental Start Date</th>
+                    <th style={{ minWidth: '120px' }}>Rental End Date</th>
+                    <th style={{ minWidth: '120px' }}>Booking Created Date</th>
+                    <th style={{ minWidth: '100px' }}>Timings</th>
+                    <th style={{ minWidth: '100px' }}>Total Price</th>
+                    <th style={{ minWidth: '150px' }}>Pickup Location</th>
+                    <th style={{ minWidth: '100px' }}>Status</th>
+                    <th style={{ minWidth: '100px' }}>Payment</th>
+                    <th style={{ minWidth: '80px' }}>OTP</th>
+                    <th style={{ minWidth: '80px' }}>Return OTP</th>
+                    <th style={{ minWidth: '180px' }}>Actions</th>
+                    <th style={{ minWidth: '80px' }}>Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredBookings.map((booking, index) => (
                     <tr key={booking._id} className={booking.carReplacementHistory && booking.carReplacementHistory.length > 0 ? 'table-info' : ''}>
                       <td className="text-center">{((pagination.currentPage - 1) * bookingsPerPage) + index + 1}</td>
-                      <td>{booking._id?.slice(-6) || 'N/A'}</td>
-                      <td>{booking.userId?.name || 'N/A'}</td>
-                      <td>{booking.userId?.email || 'N/A'}</td>
-                      <td>{renderCarInfo(booking)}</td>
-                      <td>{renderCarModel(booking)}</td>
-                      <td>{getReplacementStatus(booking)}</td>
-                      <td>{renderExtensions(booking)}</td>
-                      <td>{booking.rentalStartDate ? new Date(booking.rentalStartDate).toLocaleDateString() : 'N/A'}</td>
-                      <td>{booking.rentalEndDate ? new Date(booking.rentalEndDate).toLocaleDateString() : 'N/A'}</td>
-                      <td>{booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : 'N/A'}</td>
-                      <td>{booking.from || 'N/A'} - {booking.to || 'N/A'}</td>
-                      <td>₹{booking.totalPrice || '0'}</td>
-                      <td>{booking.pickupLocation || 'N/A'}</td>
-                      <td>
+                      <td className="align-middle">{booking._id?.slice(-8) || 'N/A'}</td>
+                      <td className="align-middle">{booking.userId?.name || 'N/A'}</td>
+                      <td className="align-middle">{booking.userId?.email || 'N/A'}</td>
+                      <td className="align-middle">{renderCarInfo(booking)}</td>
+                      <td className="align-middle">{renderCarModel(booking)}</td>
+                      <td className="align-middle">{getReplacementStatus(booking)}</td>
+                      <td className="align-middle">{renderExtensions(booking)}</td>
+                      <td className="align-middle">{booking.rentalStartDate ? new Date(booking.rentalStartDate).toLocaleDateString() : 'N/A'}</td>
+                      <td className="align-middle">{booking.rentalEndDate ? new Date(booking.rentalEndDate).toLocaleDateString() : 'N/A'}</td>
+                      <td className="align-middle">{booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : 'N/A'}</td>
+                      <td className="align-middle">{booking.from || 'N/A'} - {booking.to || 'N/A'}</td>
+                      <td className="align-middle">₹{booking.totalPrice || '0'}</td>
+                      <td className="align-middle">{booking.pickupLocation || 'N/A'}</td>
+                      <td className="align-middle">
                         <Badge bg={getStatusBadge(booking.status)} className="text-capitalize">
                           {booking.status || 'N/A'}
                         </Badge>
                       </td>
-                      <td>
+                      <td className="align-middle">
                         <Badge bg={getPaymentBadge(booking.paymentStatus)} className="text-capitalize">
                           {booking.paymentStatus || 'N/A'}
                         </Badge>
                       </td>
-                      <td>
+                      <td className="align-middle">
                         {booking.otp || 'N/A'}
                         {!booking.otp && (
                           <Button 
@@ -1158,49 +1157,50 @@ const Bookings = () => {
                           </Button>
                         )}
                       </td>
-                      <td>{booking.returnOTP || 'N/A'}</td>
-                      <td className="text-center align-middle">
-                        <Button variant="outline-warning" size="sm" className="me-1 mb-1 mt-1" onClick={() => handleEdit(booking)}>
-                          <i className="fas fa-edit"></i>
-                        </Button>
-                        <Button variant="outline-primary" size="sm" className="me-1 mb-1 mt-1" onClick={() => handleExtend(booking)}>
-                          <i className="fas fa-clock"></i>
-                        </Button>
-                        <Button variant="outline-info" size="sm" className="me-1 mb-1 mt-1" onClick={() => handleReplace(booking)}>
-                          <i className="fas fa-exchange-alt"></i>
-                        </Button>
-                        <Button variant="outline-danger" size="sm" onClick={() => handleDelete(booking._id)}>
-                          <i className="fas fa-trash-alt"></i>
-                        </Button>
+                      <td className="align-middle">{booking.returnOTP || 'N/A'}</td>
+                      <td className="align-middle">
+                        <div className="d-flex flex-wrap gap-1">
+                          <Button variant="outline-warning" size="sm" onClick={() => handleEdit(booking)} title="Edit">
+                            <i className="fas fa-edit"></i>
+                          </Button>
+                          <Button variant="outline-primary" size="sm" onClick={() => handleExtend(booking)} title="Extend">
+                            <i className="fas fa-clock"></i>
+                          </Button>
+                          <Button variant="outline-info" size="sm" onClick={() => handleReplace(booking)} title="Replace Car">
+                            <i className="fas fa-exchange-alt"></i>
+                          </Button>
+                          <Button variant="outline-danger" size="sm" onClick={() => handleDelete(booking._id)} title="Delete">
+                            <i className="fas fa-trash-alt"></i>
+                          </Button>
+                        </div>
                       </td>
-                      <td className="text-center align-middle">
-                        <Button variant="outline-info" size="sm" className="me-1 mb-1 mt-1" onClick={() => handleViewDetails(booking._id)}>
-                          view
+                      <td className="align-middle">
+                        <Button variant="outline-info" size="sm" onClick={() => handleViewDetails(booking._id)}>
+                          View
                         </Button>
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="20" className="text-center">No bookings found</td>
-                  </tr>
-                )}
-              </tbody>
-            </Table>
-            {renderPagination()}
-            
-            {/* Pagination Info */}
-            <div className="text-center text-muted mt-2">
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </div>
+          
+          {/* Pagination Section */}
+          {!isLoading && filteredBookings.length > 0 && renderPagination()}
+          
+          {/* Pagination Info */}
+          {!isLoading && filteredBookings.length > 0 && (
+            <div className="text-center text-muted mt-3 pb-3">
               <small>
                 Showing {filteredBookings.length} of {pagination.totalBookings} bookings | 
                 Page {pagination.currentPage} of {pagination.totalPages}
               </small>
             </div>
-          </>
-        )}
-      </div>
+          )}
+        </Card.Body>
+      </Card>
 
-      {/* All Modals remain exactly the same as before */}
       {/* Edit Modal */}
       <Modal show={showEditModal} onHide={() => setShowEditModal(false)}>
         <Modal.Header closeButton>
@@ -1252,7 +1252,7 @@ const Bookings = () => {
       </Modal>
 
       {/* Extend Booking Modal */}
-      <Modal show={showExtendModal} onHide={() => setShowExtendModal(false)}>
+      <Modal show={showExtendModal} onHide={() => setShowExtendModal(false)} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Extend Booking</Modal.Title>
         </Modal.Header>
@@ -1350,7 +1350,7 @@ const Bookings = () => {
           >
             {isProcessingPayment ? (
               <>
-                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />
                 Processing Payment...
               </>
             ) : (
@@ -1496,7 +1496,7 @@ const Bookings = () => {
             >
               {isReplacingCar ? (
                 <>
-                  <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                  <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />
                   Replacing Car...
                 </>
               ) : (
@@ -1515,7 +1515,7 @@ const Bookings = () => {
               >
                 {isReplacingCar ? (
                   <>
-                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />
                     Replacing Car...
                   </>
                 ) : (
@@ -1533,7 +1533,7 @@ const Bookings = () => {
               >
                 {isProcessingPayment ? (
                   <>
-                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />
                     Processing Payment...
                   </>
                 ) : (
@@ -1626,16 +1626,14 @@ const Bookings = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* Details Modal - Keep same as before */}
-      <Modal show={showDetailsModal} onHide={() => setShowDetailsModal(false)} size="xl" centered scrollable>
+      {/* Details Modal */}
+      <Modal show={showDetailsModal} onHide={() => setShowDetailsModal(false)} size="xl" scrollable>
         <Modal.Header closeButton>
           <Modal.Title>Booking Details</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {bookingDetails && (
             <div className="row">
-              {/* Keep all existing details modal content exactly the same */}
-              {/* ... (all details modal content remains unchanged) ... */}
               <div className="col-md-6">
                 <h5 className="text-primary">User Information</h5>
                 <div className="mb-3">
@@ -1703,41 +1701,6 @@ const Bookings = () => {
                     </div>
                   )}
                 </div>
-                <div>
-                  <h5 className="mt-4 text-primary">Deposit PDF</h5>
-                  <div className="mb-3">
-                    {bookingDetails.depositPDF ? (
-                      <a
-                        href={`https://varahibackend.varahiselfdrivecars.com${bookingDetails.depositPDF}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn-sm btn-success"
-                      >
-                        View Deposit PDF
-                      </a>
-                    ) : (
-                      <p>No Deposit PDF available</p>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <h5 className="mt-4 text-primary">Final Booking PDF</h5>
-                  <div className="mb-3">
-                    {bookingDetails.finalBookingPDF ? (
-                      <a
-                        href={`https://varahibackend.varahiselfdrivecars.com${bookingDetails.finalBookingPDF}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn-sm btn-info"
-                      >
-                        View Final Booking PDF
-                      </a>
-                    ) : (
-                      <p>No Final Booking PDF available</p>
-                    )}
-                  </div>
-                </div>
               </div>
 
               <div className="col-md-6">
@@ -1756,172 +1719,7 @@ const Bookings = () => {
                   </p>
                   <p><strong>Transaction ID:</strong> {bookingDetails.transactionId || 'N/A'}</p>
                   <p><strong>Advance Paid:</strong> {bookingDetails.advancePaidStatus ? 'Yes' : 'No'}</p>
-                  <p><strong>Created Date:</strong> {bookingDetails.createdAt ? new Date(bookingDetails.createdAt).toLocaleDateString() : 'N/A'}</p>
-                  <p><strong>Created Time:</strong> {bookingDetails.createdAt ? new Date(bookingDetails.createdAt).toLocaleTimeString() : 'N/A'}</p>
-                  <p><strong>Last Updated Date:</strong> {bookingDetails.updatedAt ? new Date(bookingDetails.updatedAt).toLocaleDateString() : 'N/A'}</p>
-                  <p><strong>Last Updated Time:</strong> {bookingDetails.updatedAt ? new Date(bookingDetails.updatedAt).toLocaleTimeString() : 'N/A'}</p>
                 </div>
-
-                {bookingDetails.extensions && bookingDetails.extensions.length > 0 && (
-                  <Card className="mb-4 border-info">
-                    <Card.Header className="bg-info text-white d-flex justify-content-between align-items-center">
-                      <div>
-                        <strong><i className="fas fa-clock me-2"></i>Extension History</strong>
-                      </div>
-                      <Badge bg="light" text="dark">{bookingDetails.extensions.length} Extension{bookingDetails.extensions.length > 1 ? 's' : ''}</Badge>
-                    </Card.Header>
-                    <Card.Body>
-                      <Table striped bordered hover size="sm">
-                        <thead>
-                          <tr>
-                            <th>S.No</th>
-                            <th>Extended Date</th>
-                            <th>Extended Time</th>
-                            <th>Hours</th>
-                            <th>Amount (₹)</th>
-                            <th>Transaction ID</th>
-                            <th>Extended At</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {bookingDetails.extensions.map((ext, index) => (
-                            <tr key={ext._id || index}>
-                              <td>{index + 1}</td>
-                              <td>{ext.extendDeliveryDate || '-'}</td>
-                              <td>{ext.extendDeliveryTime || '-'}</td>
-                              <td>{ext.hours || '-'}</td>
-                              <td>₹{ext.amount || 0}</td>
-                              <td>
-                                {ext.transactionId ? (
-                                  <Badge bg="info" className="text-wrap">{ext.transactionId}</Badge>
-                                ) : '-'}
-                              </td>
-                              <td>{ext.extendedAt ? new Date(ext.extendedAt).toLocaleString() : '-'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot>
-                          <tr className="table-info">
-                            <td colSpan="4" className="text-end"><strong>Total:</strong></td>
-                            <td><strong>₹{bookingDetails.extensions.reduce((sum, ext) => sum + (ext.amount || 0), 0)}</strong></td>
-                            <td colSpan="2"></td>
-                          </tr>
-                        </tfoot>
-                      </Table>
-                    </Card.Body>
-                  </Card>
-                )}
-
-                {bookingDetails.carReplacementHistory && bookingDetails.carReplacementHistory.length > 0 && (
-                  <Card className="mb-4 border-warning">
-                    <Card.Header className="bg-warning text-dark d-flex justify-content-between align-items-center">
-                      <div>
-                        <strong><i className="fas fa-exchange-alt me-2"></i>Car Replacement Details</strong>
-                      </div>
-                      <Badge bg="danger">Car Replaced</Badge>
-                    </Card.Header>
-                    <Card.Body>
-                      <Row>
-                        <Col md={12} className="mb-3">
-                          <div className="alert alert-info">
-                            <i className="fas fa-info-circle me-2"></i>
-                            <strong>Note:</strong> The original car was replaced with a different vehicle during this booking.
-                          </div>
-                        </Col>
-                      </Row>
-                      
-                      <Row>
-                        <Col md={6}>
-                          <Card className="border-danger h-100">
-                            <Card.Header className="bg-danger text-white">
-                              <strong>Original Car (Assigned Initially)</strong>
-                            </Card.Header>
-                            <Card.Body>
-                              <p><strong>Name:</strong> {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.oldCarId?.carName || 'N/A'}</p>
-                              <p><strong>Model:</strong> {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.oldCarId?.model || 'N/A'}</p>
-                              <p><strong>Vehicle Number:</strong> {replacedCarDetails.oldCar?.vehicleNumber || 'N/A'}</p>
-                              <p><strong>Year:</strong> {replacedCarDetails.oldCar?.year || 'N/A'}</p>
-                              <p><strong>Type:</strong> {replacedCarDetails.oldCar?.type || 'N/A'}</p>
-                              <p><strong>Fuel:</strong> {replacedCarDetails.oldCar?.fuel || 'N/A'}</p>
-                              <p><strong>Seats:</strong> {replacedCarDetails.oldCar?.seats || 'N/A'}</p>
-                              {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.oldCarId?.carImage?.[0] && (
-                                <div className="mt-2">
-                                  <p><strong>Car Image:</strong></p>
-                                  <img
-                                    src={bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1].oldCarId.carImage[0]}
-                                    alt="Original Car"
-                                    className="img-thumbnail"
-                                    style={{ maxHeight: '150px' }}
-                                  />
-                                </div>
-                              )}
-                            </Card.Body>
-                          </Card>
-                        </Col>
-                        <Col md={6}>
-                          <Card className="border-success h-100">
-                            <Card.Header className="bg-success text-white">
-                              <strong>Current Car (Replacement)</strong>
-                            </Card.Header>
-                            <Card.Body>
-                              <p><strong>Name:</strong> {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.newCarId?.carName || 'N/A'}</p>
-                              <p><strong>Model:</strong> {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.newCarId?.model || 'N/A'}</p>
-                              <p><strong>Vehicle Number:</strong> {replacedCarDetails.newCar?.vehicleNumber || 'N/A'}</p>
-                              <p><strong>Year:</strong> {replacedCarDetails.newCar?.year || 'N/A'}</p>
-                              <p><strong>Type:</strong> {replacedCarDetails.newCar?.type || 'N/A'}</p>
-                              <p><strong>Fuel:</strong> {replacedCarDetails.newCar?.fuel || 'N/A'}</p>
-                              <p><strong>Seats:</strong> {replacedCarDetails.newCar?.seats || 'N/A'}</p>
-                              {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.newCarId?.carImage?.[0] && (
-                                <div className="mt-2">
-                                  <p><strong>Car Image:</strong></p>
-                                  <img
-                                    src={bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1].newCarId.carImage[0]}
-                                    alt="Replacement Car"
-                                    className="img-thumbnail"
-                                    style={{ maxHeight: '150px' }}
-                                  />
-                                </div>
-                              )}
-                            </Card.Body>
-                          </Card>
-                        </Col>
-                      </Row>
-                      
-                      <hr />
-                      
-                      <div className="mt-3">
-                        <h6><i className="fas fa-cog me-2"></i>Replacement Details</h6>
-                        <Row>
-                          <Col md={6}>
-                            <p><strong>Replaced At:</strong> {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.replacedAt 
-                              ? new Date(bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1].replacedAt).toLocaleString() 
-                              : 'N/A'}</p>
-                            <p><strong>Payment Adjustment:</strong> ₹{bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.paymentAdjustment || 0}</p>
-                            <p><strong>Extra Payment Required:</strong> 
-                              <Badge bg={bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.extraPaymentRequired ? 'danger' : 'success'} className="ms-2">
-                                {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.extraPaymentRequired ? 'Yes' : 'No'}
-                              </Badge>
-                            </p>
-                          </Col>
-                          <Col md={6}>
-                            <p><strong>Staff Payment Due:</strong> ₹{bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.staffPaymentDue || 0}</p>
-                            <p><strong>Staff Payment Status:</strong>
-                              <Badge bg={bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.staffPaymentStatus === 'paid' ? 'success' : 'warning'} className="ms-2">
-                                {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.staffPaymentStatus || 'Pending'}
-                              </Badge>
-                            </p>
-                            <p><strong>Replacement Transaction ID:</strong> {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.transactionId || 'N/A'}</p>
-                            <p><strong>Payment Status:</strong>
-                              <Badge bg={bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.paymentStatus === 'paid' ? 'success' : 'warning'} className="ms-2">
-                                {bookingDetails.carReplacementHistory[bookingDetails.carReplacementHistory.length - 1]?.paymentStatus || 'Pending'}
-                              </Badge>
-                            </p>
-                          </Col>
-                        </Row>
-                      </div>
-                    </Card.Body>
-                  </Card>
-                )}
 
                 <h5 className="mt-4 text-primary">Rental Details</h5>
                 <div className="mb-3">
@@ -1929,28 +1727,11 @@ const Bookings = () => {
                   <p><strong>Rental End Date:</strong> {new Date(bookingDetails.rentalEndDate).toLocaleDateString()}</p>
                   <p><strong>Timings:</strong> {bookingDetails.from} - {bookingDetails.to}</p>
                   <p><strong>Total Price:</strong> ₹{bookingDetails.totalPrice}</p>
-                  <p><strong>Pickup Location:</strong> {bookingDetails.pickupLocation}</p>
+                  <p><strong>Pickup Location:</strong> {bookingDetails.pickupLocation || 'N/A'}</p>
                   <p><strong>Deposit Type:</strong> {bookingDetails.deposit}</p>
                   <p><strong>OTP:</strong> {bookingDetails.otp || 'N/A'}</p>
                   <p><strong>Return OTP:</strong> {bookingDetails.returnOTP || 'Not generated'}</p>
                 </div>
-
-                {bookingDetails.delayedPaymentProof && (
-                  <>
-                    <h5 className="mt-4 text-primary">Delayed Payment Proof</h5>
-                    <div className="mb-3">
-                      <img
-                        src={bookingDetails.delayedPaymentProof.url}
-                        alt="Delayed Payment Proof"
-                        className="img-fluid img-thumbnail"
-                        style={{ maxHeight: '200px' }}
-                      />
-                      <p className="text-muted small mt-1">
-                        Uploaded: {new Date(bookingDetails.delayedPaymentProof.uploadedAt).toLocaleString()}
-                      </p>
-                    </div>
-                  </>
-                )}
 
                 <h5 className="mt-4 text-primary">Current Car Information</h5>
                 <div className="mb-3">
@@ -1961,100 +1742,6 @@ const Bookings = () => {
                   <p><strong>Type:</strong> {bookingDetails.car?.type}</p>
                   <p><strong>Fuel:</strong> {bookingDetails.car?.fuel}</p>
                   <p><strong>Seats:</strong> {bookingDetails.car?.seats}</p>
-                  <p><strong>Location:</strong> {bookingDetails.car?.location}</p>
-                  <p><strong>Car Type:</strong> {bookingDetails.car?.carType}</p>
-                  <p><strong>Status:</strong> {bookingDetails.car?.status}</p>
-                  <p><strong>Running Status:</strong> {bookingDetails.car?.runningStatus || 'N/A'}</p>
-                  {replacedCarDetails.newCar?.branch && (
-                    <p><strong>Branch:</strong> {replacedCarDetails.newCar.branch.name}</p>
-                  )}
-                </div>
-
-                {replacedCarDetails.newCar && (
-                  <>
-                    <h5 className="mt-4 text-primary">Current Car Pricing (From Car API)</h5>
-                    <div className="mb-3">
-                      <p><strong>Price/Hour:</strong> ₹{replacedCarDetails.newCar.pricePerHour || bookingDetails.car?.pricePerHour}</p>
-                      <p><strong>Price/Day:</strong> ₹{replacedCarDetails.newCar.pricePerDay || bookingDetails.car?.pricePerDay}</p>
-                      <p><strong>Extended/Hour:</strong> ₹{replacedCarDetails.newCar.extendedPrice?.perHour || bookingDetails.car?.extendedPrice?.perHour}</p>
-                      <p><strong>Extended/Day:</strong> ₹{replacedCarDetails.newCar.extendedPrice?.perDay || bookingDetails.car?.extendedPrice?.perDay}</p>
-                      <p><strong>Delay/Hour:</strong> ₹{replacedCarDetails.newCar.delayPerHour || bookingDetails.car?.delayPerHour}</p>
-                      <p><strong>Delay/Day:</strong> ₹{replacedCarDetails.newCar.delayPerDay || bookingDetails.car?.delayPerDay}</p>
-                      {replacedCarDetails.newCar.depositOptions && (
-                        <p><strong>Deposit Options:</strong> {replacedCarDetails.newCar.depositOptions.join(', ')}</p>
-                      )}
-                    </div>
-                  </>
-                )}
-
-                <h5 className="mt-4 text-primary">Car Images</h5>
-                <div className="d-flex flex-wrap mb-3">
-                  {bookingDetails.car?.carImage?.length > 0 ? (
-                    bookingDetails.car.carImage.map((img, idx) => (
-                      <img
-                        key={idx}
-                        src={img}
-                        alt={`Car ${idx + 1}`}
-                        className="img-thumbnail me-2 mb-2"
-                        style={{ width: '120px', height: '80px', objectFit: 'cover' }}
-                      />
-                    ))
-                  ) : (
-                    <p>No car images available</p>
-                  )}
-                </div>
-
-                <h5 className="mt-4 text-primary">Car Pickup Images</h5>
-                <div className="d-flex flex-wrap mb-3">
-                  {bookingDetails.carImagesBeforePickup?.length > 0 ? (
-                    bookingDetails.carImagesBeforePickup.map((img, idx) => (
-                      <img
-                        key={idx}
-                        src={img.url}
-                        alt={`Pickup ${idx + 1}`}
-                        className="img-thumbnail me-2 mb-2"
-                        style={{ width: '120px', height: '80px', objectFit: 'cover' }}
-                      />
-                    ))
-                  ) : (
-                    <p>No pickup images available</p>
-                  )}
-                </div>
-
-                <h5 className="mt-4 text-primary">Car Return Images</h5>
-                <div className="d-flex flex-wrap mb-3">
-                  {bookingDetails.carReturnImages?.length > 0 ? (
-                    bookingDetails.carReturnImages.map((img, idx) => (
-                      <img
-                        key={idx}
-                        src={img.url}
-                        alt={`Return ${idx + 1}`}
-                        className="img-thumbnail me-2 mb-2"
-                        style={{ width: '120px', height: '80px', objectFit: 'cover' }}
-                      />
-                    ))
-                  ) : (
-                    <p>No return images available</p>
-                  )}
-                </div>
-
-                <h5 className="mt-4 text-primary">Deposit Proof</h5>
-                <div className="d-flex flex-wrap mb-3">
-                  {bookingDetails.depositeProof?.length > 0 ? (
-                    bookingDetails.depositeProof.map((proof, idx) => (
-                      <div key={idx} className="me-3 mb-3">
-                        <img
-                          src={proof.url}
-                          alt={`Deposit Proof ${idx + 1}`}
-                          className="img-thumbnail"
-                          style={{ width: '120px', height: '80px', objectFit: 'cover' }}
-                        />
-                        <p className="small text-center mt-1">{proof.label}</p>
-                      </div>
-                    ))
-                  ) : (
-                    <p>No deposit proof available</p>
-                  )}
                 </div>
               </div>
             </div>
