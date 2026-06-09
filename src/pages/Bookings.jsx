@@ -1627,132 +1627,370 @@ const Bookings = () => {
       </Modal>
 
       {/* Details Modal */}
-      <Modal show={showDetailsModal} onHide={() => setShowDetailsModal(false)} size="xl" scrollable>
-        <Modal.Header closeButton>
-          <Modal.Title>Booking Details</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {bookingDetails && (
-            <div className="row">
-              <div className="col-md-6">
-                <h5 className="text-primary">User Information</h5>
-                <div className="mb-3">
-                  <p><strong>Name:</strong> {bookingDetails.userId?.name || 'N/A'}</p>
-                  <p><strong>Email:</strong> {bookingDetails.userId?.email || 'N/A'}</p>
-                  <p><strong>Mobile:</strong> {bookingDetails.userId?.mobile || 'N/A'}</p>
-                </div>
+<Modal show={showDetailsModal} onHide={() => setShowDetailsModal(false)} size="xl" scrollable>
+  <Modal.Header closeButton>
+    <Modal.Title>Booking Details</Modal.Title>
+  </Modal.Header>
+  <Modal.Body>
+    {bookingDetails && (
+      <>
+        {/* User Information Section */}
+        <div className="row mb-4">
+          <div className="col-md-6">
+            <h5 className="text-primary border-bottom pb-2">User Information</h5>
+            <div className="mb-3">
+              <p><strong>Name:</strong> {bookingDetails.userId?.name || 'N/A'}</p>
+              <p><strong>Email:</strong> {bookingDetails.userId?.email || 'N/A'}</p>
+              <p><strong>Mobile:</strong> {bookingDetails.userId?.mobile || 'N/A'}</p>
+            </div>
 
-                <h5 className="mt-4 text-primary">Document Status</h5>
-                <div className="mb-3">
-                  <p>
-                    <strong>Aadhar Card:</strong>
-                    <Badge bg={
-                      bookingDetails.userId?.documents?.aadharCard?.status === 'approved'
-                        ? 'success'
-                        : bookingDetails.userId?.documents?.aadharCard?.status === 'rejected'
-                          ? 'danger'
-                          : 'warning'
-                    } className="ms-2">
-                      {bookingDetails.userId?.documents?.aadharCard?.status || 'Not uploaded'}
-                    </Badge>
-                  </p>
-                  <p>
-                    <strong>Driving License:</strong>
-                    <Badge bg={
-                      bookingDetails.userId?.documents?.drivingLicense?.status === 'approved'
-                        ? 'success'
-                        : bookingDetails.userId?.documents?.drivingLicense?.status === 'rejected'
-                          ? 'danger'
-                          : 'warning'
-                    } className="ms-2">
-                      {bookingDetails.userId?.documents?.drivingLicense?.status || 'Not uploaded'}
-                    </Badge>
-                  </p>
-                </div>
+            <h5 className="mt-4 text-primary border-bottom pb-2">Document Status</h5>
+            <div className="mb-3">
+              <p>
+                <strong>Aadhar Card:</strong>
+                <Badge bg={
+                  bookingDetails.userId?.documents?.aadharCard?.status === 'verified' || 
+                  bookingDetails.userId?.documents?.aadharCard?.status === 'approved'
+                    ? 'success'
+                    : bookingDetails.userId?.documents?.aadharCard?.status === 'rejected'
+                      ? 'danger'
+                      : 'warning'
+                } className="ms-2">
+                  {bookingDetails.userId?.documents?.aadharCard?.status || 'Not uploaded'}
+                </Badge>
+              </p>
+              {bookingDetails.userId?.documents?.aadharCard?.message && (
+                <p className="text-muted small ms-3">
+                  <i className="fas fa-info-circle me-1"></i>
+                  {bookingDetails.userId.documents.aadharCard.message}
+                </p>
+              )}
+              <p>
+                <strong>Driving License:</strong>
+                <Badge bg={
+                  bookingDetails.userId?.documents?.drivingLicense?.status === 'verified' || 
+                  bookingDetails.userId?.documents?.drivingLicense?.status === 'approved'
+                    ? 'success'
+                    : bookingDetails.userId?.documents?.drivingLicense?.status === 'rejected'
+                      ? 'danger'
+                      : 'warning'
+                } className="ms-2">
+                  {bookingDetails.userId?.documents?.drivingLicense?.status || 'Not uploaded'}
+                </Badge>
+              </p>
+              {bookingDetails.userId?.documents?.drivingLicense?.message && (
+                <p className="text-muted small ms-3">
+                  <i className="fas fa-info-circle me-1"></i>
+                  {bookingDetails.userId.documents.drivingLicense.message}
+                </p>
+              )}
+            </div>
+          </div>
 
-                <h5 className="mt-4 text-primary">Document Images</h5>
-                <div className="mb-3">
-                  {bookingDetails.userId?.documents?.aadharCard?.url && (
-                    <div className="mb-3">
-                      <h6>Aadhar Card</h6>
-                      <img
-                        src={bookingDetails.userId.documents.aadharCard.url}
-                        alt="Aadhar Card"
-                        className="img-fluid img-thumbnail"
-                        style={{ maxHeight: '200px' }}
-                      />
-                      <p className="text-muted small mt-1">
-                        Uploaded: {new Date(bookingDetails.userId.documents.aadharCard.uploadedAt).toLocaleString()}
-                      </p>
-                    </div>
-                  )}
-                  {bookingDetails.userId?.documents?.drivingLicense?.url && (
-                    <div className="mb-3">
-                      <h6>Driving License</h6>
-                      <img
-                        src={bookingDetails.userId.documents.drivingLicense.url}
-                        alt="Driving License"
-                        className="img-fluid img-thumbnail"
-                        style={{ maxHeight: '200px' }}
-                      />
-                      <p className="text-muted small mt-1">
-                        Uploaded: {new Date(bookingDetails.userId.documents.drivingLicense.uploadedAt).toLocaleString()}
-                      </p>
-                    </div>
-                  )}
-                </div>
+          <div className="col-md-6">
+            <h5 className="text-primary border-bottom pb-2">Booking Information</h5>
+            <div className="mb-3">
+              <p><strong>Booking ID:</strong> <code>{bookingDetails._id}</code></p>
+              <p><strong>Status:</strong>
+                <Badge bg={getStatusBadge(bookingDetails.status)} className="ms-2">
+                  {bookingDetails.status}
+                </Badge>
+              </p>
+              <p><strong>Payment Status:</strong>
+                <Badge bg={getPaymentBadge(bookingDetails.paymentStatus)} className="ms-2">
+                  {bookingDetails.paymentStatus}
+                </Badge>
+              </p>
+              <p><strong>Transaction ID:</strong> {bookingDetails.transactionId || 'N/A'}</p>
+              <p><strong>Advance Paid:</strong> {bookingDetails.advancePaidStatus ? 'Yes' : 'No'}</p>
+              <p><strong>Customer Took Car:</strong> {bookingDetails.customerTookCar ? 'Yes' : 'No'}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Rental Details Section */}
+        <div className="row mb-4">
+          <div className="col-md-6">
+            <h5 className="text-primary border-bottom pb-2">Rental Details</h5>
+            <div className="mb-3">
+              <p><strong>Rental Start Date:</strong> {bookingDetails.rentalStartDate ? new Date(bookingDetails.rentalStartDate).toLocaleDateString() : 'N/A'}</p>
+              <p><strong>Rental End Date:</strong> {bookingDetails.rentalEndDate ? new Date(bookingDetails.rentalEndDate).toLocaleDateString() : 'N/A'}</p>
+              <p><strong>Delivery Date:</strong> {bookingDetails.deliveryDate ? new Date(bookingDetails.deliveryDate).toLocaleDateString() : 'N/A'}</p>
+              <p><strong>Delivery Time:</strong> {bookingDetails.deliveryTime || 'N/A'}</p>
+              <p><strong>Timings:</strong> {bookingDetails.from} - {bookingDetails.to}</p>
+              <p><strong>Total Price:</strong> ₹{bookingDetails.totalPrice}</p>
+              <p><strong>Pickup Location:</strong> {bookingDetails.pickupLocation || 'N/A'}</p>
+              <p><strong>Deposit Amount:</strong> ₹{bookingDetails.deposit || 0}</p>
+              <p><strong>OTP:</strong> <code>{bookingDetails.otp || 'N/A'}</code></p>
+              <p><strong>Return OTP:</strong> <code>{bookingDetails.returnOTP || 'Not generated'}</code></p>
+            </div>
+          </div>
+
+          <div className="col-md-6">
+            <h5 className="text-primary border-bottom pb-2">Current Car Information</h5>
+            <div className="mb-3">
+              <p><strong>Name:</strong> {bookingDetails.car?.carName}</p>
+              <p><strong>Model:</strong> {bookingDetails.car?.model}</p>
+              <p><strong>Year:</strong> {bookingDetails.car?.year}</p>
+              <p><strong>Vehicle Number:</strong> {bookingDetails.car?.vehicleNumber}</p>
+              <p><strong>Type:</strong> {bookingDetails.car?.type}</p>
+              <p><strong>Car Type:</strong> {bookingDetails.car?.carType}</p>
+              <p><strong>Fuel:</strong> {bookingDetails.car?.fuel}</p>
+              <p><strong>Seats:</strong> {bookingDetails.car?.seats}</p>
+              <p><strong>Location:</strong> {bookingDetails.car?.location}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Extensions Section */}
+        {bookingDetails.extensions && bookingDetails.extensions.length > 0 && (
+          <div className="row mb-4">
+            <div className="col-12">
+              <h5 className="text-primary border-bottom pb-2">Extension History</h5>
+              <div className="table-responsive">
+                <Table striped bordered hover size="sm">
+                  <thead>
+                    <tr className="table-info">
+                      <th>S.No</th>
+                      <th>Extended Date</th>
+                      <th>Extended Time</th>
+                      <th>Hours</th>
+                      <th>Amount (₹)</th>
+                      <th>Transaction ID</th>
+                      <th>Extended At</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bookingDetails.extensions.map((ext, index) => (
+                      <tr key={ext._id || index}>
+                        <td>{index + 1}</td>
+                        <td>{ext.extendDeliveryDate || '-'}</td>
+                        <td>{ext.extendDeliveryTime || '-'}</td>
+                        <td>{ext.hours || '-'}</td>
+                        <td>₹{ext.amount || 0}</td>
+                        <td>
+                          {ext.transactionId ? (
+                            <code className="small">{ext.transactionId}</code>
+                          ) : '-'}
+                        </td>
+                        <td>{ext.extendedAt ? new Date(ext.extendedAt).toLocaleString() : '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="table-active">
+                      <td colSpan="4" className="text-end"><strong>Total:</strong></td>
+                      <td><strong>₹{bookingDetails.extensions.reduce((sum, ext) => sum + (ext.amount || 0), 0)}</strong></td>
+                      <td colSpan="2"></td>
+                    </tr>
+                  </tfoot>
+                </Table>
               </div>
+            </div>
+          </div>
+        )}
 
-              <div className="col-md-6">
-                <h5 className="text-primary">Booking Information</h5>
-                <div className="mb-3">
-                  <p><strong>Booking ID:</strong> {bookingDetails._id}</p>
-                  <p><strong>Status:</strong>
-                    <Badge bg={getStatusBadge(bookingDetails.status)} className="ms-2">
-                      {bookingDetails.status}
-                    </Badge>
-                  </p>
-                  <p><strong>Payment Status:</strong>
-                    <Badge bg={getPaymentBadge(bookingDetails.paymentStatus)} className="ms-2">
-                      {bookingDetails.paymentStatus}
-                    </Badge>
-                  </p>
-                  <p><strong>Transaction ID:</strong> {bookingDetails.transactionId || 'N/A'}</p>
-                  <p><strong>Advance Paid:</strong> {bookingDetails.advancePaidStatus ? 'Yes' : 'No'}</p>
+        {/* Car Replacement History Section */}
+        {bookingDetails.carReplacementHistory && bookingDetails.carReplacementHistory.length > 0 && (
+          <div className="row mb-4">
+            <div className="col-12">
+              <h5 className="text-warning border-bottom pb-2">Car Replacement History</h5>
+              {bookingDetails.carReplacementHistory.map((replacement, idx) => (
+                <div key={replacement._id || idx} className="card mb-3 border-warning">
+                  <div className="card-header bg-warning bg-opacity-10">
+                    <strong>Replacement #{idx + 1}</strong>
+                    <span className="ms-3">
+                      <Badge bg="warning">
+                        {new Date(replacement.replacedAt).toLocaleString()}
+                      </Badge>
+                    </span>
+                  </div>
+                  <div className="card-body">
+                    <div className="row">
+                      <div className="col-md-6">
+                        <h6 className="text-danger">Old Car</h6>
+                        <p><strong>Name:</strong> {replacement.oldCarId?.carName || 'N/A'}</p>
+                        {/* <p><strong>Model:</strong> {replacement.oldCarId?.model || 'N/A'}</p>
+                        <p><strong>Vehicle Number:</strong> {replacement.oldCarId?.vehicleNumber || 'N/A'}</p>
+                        <p><strong>Price Per Day:</strong> ₹{replacement.oldCarId?.pricePerDay || 'N/A'}</p> */}
+                      </div>
+                      <div className="col-md-6">
+                        <h6 className="text-success">New Car</h6>
+                        <p><strong>Name:</strong> {replacement.newCarId?.carName || 'N/A'}</p>
+                        {/* <p><strong>Model:</strong> {replacement.newCarId?.model || 'N/A'}</p>
+                        <p><strong>Vehicle Number:</strong> {replacement.newCarId?.vehicleNumber || 'N/A'}</p>
+                        <p><strong>Price Per Day:</strong> ₹{replacement.newCarId?.pricePerDay || 'N/A'}</p> */}
+                      </div>
+                    </div>
+                    <div className="row mt-2">
+                      <div className="col-12">
+                        <p><strong>Payment Adjustment:</strong> ₹{replacement.paymentAdjustment || 0}</p>
+                        <p><strong>Staff Payment Status:</strong> 
+                          <Badge bg={replacement.staffPaymentStatus === 'completed' ? 'success' : 'warning'} className="ms-2">
+                            {replacement.staffPaymentStatus || 'N/A'}
+                          </Badge>
+                        </p>
+                        {replacement.transactionId && (
+                          <p><strong>Transaction ID:</strong> <code>{replacement.transactionId}</code></p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-                <h5 className="mt-4 text-primary">Rental Details</h5>
-                <div className="mb-3">
-                  <p><strong>Rental Start Date:</strong> {new Date(bookingDetails.rentalStartDate).toLocaleDateString()}</p>
-                  <p><strong>Rental End Date:</strong> {new Date(bookingDetails.rentalEndDate).toLocaleDateString()}</p>
-                  <p><strong>Timings:</strong> {bookingDetails.from} - {bookingDetails.to}</p>
-                  <p><strong>Total Price:</strong> ₹{bookingDetails.totalPrice}</p>
-                  <p><strong>Pickup Location:</strong> {bookingDetails.pickupLocation || 'N/A'}</p>
-                  <p><strong>Deposit Type:</strong> {bookingDetails.deposit}</p>
-                  <p><strong>OTP:</strong> {bookingDetails.otp || 'N/A'}</p>
-                  <p><strong>Return OTP:</strong> {bookingDetails.returnOTP || 'Not generated'}</p>
+        {/* Images Section */}
+        <div className="row">
+          <div className="col-12">
+            <h5 className="text-primary border-bottom pb-2">Document Images</h5>
+          </div>
+          
+          {/* Aadhar Card */}
+          {bookingDetails.userId?.documents?.aadharCard?.url && (
+            <div className="col-md-6 mb-3">
+              <div className="card h-100">
+                <div className="card-header">
+                  <strong>Aadhar Card</strong>
+                  <Badge bg={
+                    bookingDetails.userId.documents.aadharCard.status === 'verified' ? 'success' : 'danger'
+                  } className="ms-2">
+                    {bookingDetails.userId.documents.aadharCard.status}
+                  </Badge>
                 </div>
-
-                <h5 className="mt-4 text-primary">Current Car Information</h5>
-                <div className="mb-3">
-                  <p><strong>Name:</strong> {bookingDetails.car?.carName}</p>
-                  <p><strong>Model:</strong> {bookingDetails.car?.model}</p>
-                  <p><strong>Year:</strong> {bookingDetails.car?.year}</p>
-                  <p><strong>Vehicle Number:</strong> {bookingDetails.car?.vehicleNumber}</p>
-                  <p><strong>Type:</strong> {bookingDetails.car?.type}</p>
-                  <p><strong>Fuel:</strong> {bookingDetails.car?.fuel}</p>
-                  <p><strong>Seats:</strong> {bookingDetails.car?.seats}</p>
+                <div className="card-body text-center">
+                  <img
+                    src={bookingDetails.userId.documents.aadharCard.url}
+                    alt="Aadhar Card"
+                    className="img-fluid img-thumbnail"
+                    style={{ maxHeight: '250px', cursor: 'pointer' }}
+                    onClick={() => window.open(bookingDetails.userId.documents.aadharCard.url, '_blank')}
+                  />
+                  <p className="text-muted small mt-2">
+                    Uploaded: {new Date(bookingDetails.userId.documents.aadharCard.uploadedAt).toLocaleString()}
+                  </p>
                 </div>
               </div>
             </div>
           )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowDetailsModal(false)}>
-            Close
-          </Button>
-        </Modal.Footer>
-      </Modal>
+          
+          {/* Driving License */}
+          {bookingDetails.userId?.documents?.drivingLicense?.url && (
+            <div className="col-md-6 mb-3">
+              <div className="card h-100">
+                <div className="card-header">
+                  <strong>Driving License</strong>
+                  <Badge bg={
+                    bookingDetails.userId.documents.drivingLicense.status === 'verified' ? 'success' : 
+                    bookingDetails.userId.documents.drivingLicense.status === 'approved' ? 'success' : 'warning'
+                  } className="ms-2">
+                    {bookingDetails.userId.documents.drivingLicense.status}
+                  </Badge>
+                </div>
+                <div className="card-body text-center">
+                  <img
+                    src={bookingDetails.userId.documents.drivingLicense.url}
+                    alt="Driving License"
+                    className="img-fluid img-thumbnail"
+                    style={{ maxHeight: '250px', cursor: 'pointer' }}
+                    onClick={() => window.open(bookingDetails.userId.documents.drivingLicense.url, '_blank')}
+                  />
+                  <p className="text-muted small mt-2">
+                    Uploaded: {new Date(bookingDetails.userId.documents.drivingLicense.uploadedAt).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Deposit Proof Images */}
+        {bookingDetails.depositeProof && bookingDetails.depositeProof.length > 0 && (
+          <div className="row mt-3">
+            <div className="col-12">
+              <h5 className="text-primary border-bottom pb-2">Deposit Proof Images</h5>
+            </div>
+            {bookingDetails.depositeProof.map((proof, idx) => (
+              <div className="col-md-6 mb-3" key={proof._id || idx}>
+                <div className="card">
+                  <div className="card-header">
+                    <strong>{proof.label === 'depositeFront' ? 'Deposit Front' : 'Deposit Back'}</strong>
+                  </div>
+                  <div className="card-body text-center">
+                    <img
+                      src={proof.url}
+                      alt={proof.label}
+                      className="img-fluid img-thumbnail"
+                      style={{ maxHeight: '200px', cursor: 'pointer' }}
+                      onClick={() => window.open(proof.url, '_blank')}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Car Pickup Images */}
+        {bookingDetails.carImagesBeforePickup && bookingDetails.carImagesBeforePickup.length > 0 && (
+          <div className="row mt-3">
+            <div className="col-12">
+              <h5 className="text-primary border-bottom pb-2">Car Pickup Images ({bookingDetails.carImagesBeforePickup.length})</h5>
+            </div>
+            <div className="col-12">
+              <div className="row">
+                {bookingDetails.carImagesBeforePickup.map((image, idx) => (
+                  <div className="col-md-3 col-6 mb-3" key={image._id || idx}>
+                    <img
+                      src={image.url}
+                      alt={`Car Pickup ${idx + 1}`}
+                      className="img-fluid img-thumbnail"
+                      style={{ height: '150px', width: '100%', objectFit: 'cover', cursor: 'pointer' }}
+                      onClick={() => window.open(image.url, '_blank')}
+                    />
+                  </div>
+                ))}
+              </div>
+              
+            </div>
+          </div>
+        )}
+
+        {/* Additional Information */}
+        <div className="row mt-3">
+          <div className="col-12">
+            <h5 className="text-primary border-bottom pb-2">Additional Information</h5>
+            <div className="row">
+              <div className="col-md-6">
+                <p><strong>Booking Created:</strong> {new Date(bookingDetails.createdAt).toLocaleString()}</p>
+                <p><strong>Last Updated:</strong> {new Date(bookingDetails.updatedAt).toLocaleString()}</p>
+              </div>
+              <div className="col-md-6">
+                <p><strong>Deposit PDF:</strong> {bookingDetails.depositPDF ? (
+                  <a href={bookingDetails.depositPDF} target="_blank" rel="noopener noreferrer">
+                    <Button variant="link" size="sm">View PDF</Button>
+                  </a>
+                ) : 'Not available'}</p>
+                <p><strong>Final Booking PDF:</strong> {bookingDetails.finalBookingPDF ? (
+                  <a href={bookingDetails.finalBookingPDF} target="_blank" rel="noopener noreferrer">
+                    <Button variant="link" size="sm">View PDF</Button>
+                  </a>
+                ) : 'Not available'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    )}
+  </Modal.Body>
+  <Modal.Footer>
+    <Button variant="secondary" onClick={() => setShowDetailsModal(false)}>
+      Close
+    </Button>
+  </Modal.Footer>
+</Modal>
     </div>
   );
 };
