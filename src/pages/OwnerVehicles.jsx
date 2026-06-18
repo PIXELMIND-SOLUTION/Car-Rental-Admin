@@ -1001,6 +1001,7 @@ const OwnerVehicles = () => {
               {/* Basic Information */}
               <div className="col-md-6">
                 <h5 className="text-primary mb-3">Basic Information</h5>
+                <div className="mb-2"><strong>CarId:</strong> {viewVehicle._id || '-'}</div>
                 <div className="mb-2"><strong>Car Name:</strong> {viewVehicle.carName || '-'}</div>
                 <div className="mb-2"><strong>Model:</strong> {viewVehicle.model || '-'}</div>
                 <div className="mb-2"><strong>Year:</strong> {viewVehicle.year || '-'}</div>

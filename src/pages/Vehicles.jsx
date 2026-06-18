@@ -1132,6 +1132,9 @@ const Vehicles = () => {
                   {viewVehicle.car?.carName || viewVehicle.carName} - {viewVehicle.car?.model || viewVehicle.model}
                 </h4>
                 <div className="mb-3">
+                  <strong>CarId:</strong> {viewVehicle.car?._id || viewVehicle._id || '-'}
+                </div>
+                <div className="mb-3">
                   <strong>Year:</strong> {viewVehicle.car?.year || viewVehicle.year || '-'}
                 </div>
                 <div className="mb-3">

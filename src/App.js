@@ -21,6 +21,7 @@ import Owners from './pages/Owners';
 import OwnerVehicles from './pages/OwnerVehicles';
 import OwnerBookings from './pages/OwnerBookings';
 import OwnerCars from './pages/OwnerCars';
+import HoldVehicles from './pages/HoldVehicles';
 
 function App() {
   return (
@@ -38,13 +39,14 @@ function App() {
             <Route path="users" element={<Users />} />
             <Route path="staff" element={<Staff />} />
             <Route path="vehicles" element={<Vehicles />} />
+            <Route path="hold-vehicles" element={<HoldVehicles />} />
             <Route path="bookings" element={<Bookings />} />
             <Route path="banners" element={<AdminBannerManager />} />
             <Route path="notifications" element={<Notifications />} />
             <Route path="maintanence" element={<MaintenanceSettings />} />
             <Route path="premium-deposits" element={<PremiumDeposits />} />
             <Route path="settings" element={<Settings />} />
-             <Route path="paymentlogs" element={<PaymentLogs />} />
+            <Route path="paymentlogs" element={<PaymentLogs />} />
             <Route path="owners" element={<Owners />} />
             <Route path="owner-vehicles" element={<OwnerVehicles />} />
             <Route path="owner-cars" element={<OwnerCars />} />
