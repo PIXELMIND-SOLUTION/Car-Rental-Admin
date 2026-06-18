@@ -28,7 +28,7 @@ const Users = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterField, setFilterField] = useState('name');
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
-  
+
   // Pagination state from backend
   const [pagination, setPagination] = useState({
     currentPage: 1,
@@ -52,7 +52,7 @@ const Users = () => {
       setUsers(data.users);
       setPagination(data.pagination);
       setCurrentPage(data.pagination.currentPage);
-      
+
       // If search is empty, show paginated users
       if (searchTerm === '') {
         setFilteredUsers(data.users);
@@ -260,7 +260,7 @@ const Users = () => {
   const renderPagination = () => {
     // Only show pagination when NOT searching
     if (searchTerm !== '') return null;
-    
+
     if (!pagination.totalPages || pagination.totalPages < 1) return null;
 
     const pages = [];
@@ -467,11 +467,17 @@ const Users = () => {
                       <td className="text-center">{((currentPage - 1) * usersPerPage) + i + 1}</td>
                       <td>
                         <Image
-                          src={u.profileImage ? u.profileImage : "/profile.png"}
+                          src={u.profileImage}
                           alt="profile"
                           roundedCircle
-                          width="40"
-                          height="40"
+                          width={40}
+                          height={40}
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = `https://placehold.co/40x40/0d6efd/ffffff?text=${(
+                              u.name?.charAt(0) || "U"
+                            ).toUpperCase()}`;
+                          }}
                         />
                       </td>
                       <td>{u.name || '-'}</td>
@@ -509,11 +515,11 @@ const Users = () => {
               </tbody>
             </Table>
             {renderPagination()}
-            
+
             {/* Pagination Info */}
             <div className="text-center text-muted mt-2">
               <small>
-                Showing {sortedUsers.length} of {searchTerm ? allUsers.length : pagination.totalUsers} users | 
+                Showing {sortedUsers.length} of {searchTerm ? allUsers.length : pagination.totalUsers} users |
                 Page {currentPage} of {searchTerm ? 1 : pagination.totalPages}
               </small>
             </div>

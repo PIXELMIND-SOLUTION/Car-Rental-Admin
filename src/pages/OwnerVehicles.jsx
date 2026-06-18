@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Button, Form, Table, Spinner, Alert, Pagination, Nav, Tab, Row, Col, Badge } from 'react-bootstrap';
 import { ToastContainer, toast } from 'react-toastify';
 import * as XLSX from 'xlsx';
+import HoldModal from '../modals/HoldModal';
 
 const OwnerVehicles = () => {
   const [vehicles, setVehicles] = useState([]);
@@ -61,6 +62,10 @@ const OwnerVehicles = () => {
   const carTypes = ['SUV', 'SEDAN', 'HATCHBACK'];
   const fuelTypes = ['Petrol', 'Diesel'];
   const depositOptionTypes = ['Bike', 'Cash', 'Laptop'];
+
+  const [showHoldModal, setShowHoldModal] = useState(false);
+  const [holdVehicleId, setHoldVehicleId] = useState('');
+  const [holdVehicleName, setHoldVehicleName] = useState('');
 
   // Status options for navigation
   const statusOptions = [
@@ -631,7 +636,7 @@ const OwnerVehicles = () => {
                           style={{ width: '130px' }}
                           className={`border-${vehicle.status === 'active' ? 'success' :
                             vehicle.status === 'onHold' ? 'warning' :
-                            vehicle.status === 'underRepair' ? 'danger' : 'info'}`}
+                              vehicle.status === 'underRepair' ? 'danger' : 'info'}`}
                         >
                           <option value="active">Active</option>
                           <option value="onHold">On Hold</option>
@@ -668,6 +673,18 @@ const OwnerVehicles = () => {
                       <td className="text-center align-middle">
                         <button className="me-1 mb-1 mt-1 ms-1 btn btn-sm btn-outline-info" onClick={() => openViewModal(vehicle)}>
                           <i className="fas fa-eye"></i>
+                        </button>
+                        <button
+                          className="me-1 mb-1 mt-1 ms-1 btn btn-sm btn-outline-warning"
+                          onClick={() => {
+                            setHoldVehicleId(vehicle._id);
+                            setHoldVehicleName(vehicle.carName || 'Vehicle');
+                            setShowHoldModal(true);
+                          }}
+                          title="Place on Hold"
+                          disabled={vehicle.runningStatus === 'On Hold'}
+                        >
+                          <i className="fas fa-pause-circle"></i>
                         </button>
                         <button className="me-1 mb-1 mt-1 ms-1 btn btn-sm btn-outline-warning" onClick={() => openEditModal(vehicle)}>
                           <i className="fas fa-edit"></i>
@@ -1027,7 +1044,7 @@ const OwnerVehicles = () => {
                   <strong>Status:</strong>{' '}
                   <span className={`badge bg-${viewVehicle.status === 'active' ? 'success' :
                     viewVehicle.status === 'onHold' ? 'warning' :
-                    viewVehicle.status === 'underRepair' ? 'danger' : 'info'}`}>
+                      viewVehicle.status === 'underRepair' ? 'danger' : 'info'}`}>
                     {viewVehicle.status || 'active'}
                   </span>
                 </div>
@@ -1142,6 +1159,18 @@ const OwnerVehicles = () => {
           <Button variant="secondary" onClick={closeViewModal}>Close</Button>
         </Modal.Footer>
       </Modal>
+
+      {/* Hold Modal */}
+      <HoldModal
+        show={showHoldModal}
+        onHide={() => setShowHoldModal(false)}
+        vehicleId={holdVehicleId}
+        vehicleName={holdVehicleName}
+        onHoldSuccess={() => {
+          // Refresh the vehicle list after successful hold
+          handleRefresh();
+        }}
+      />
     </div>
   );
 };

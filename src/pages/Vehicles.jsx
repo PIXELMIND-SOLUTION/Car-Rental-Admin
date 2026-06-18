@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Button, Form, Table, Spinner, Alert, Pagination, InputGroup, FormControl } from 'react-bootstrap';
 import { ToastContainer, toast } from 'react-toastify';
 import * as XLSX from 'xlsx';
+import HoldModal from '../modals/HoldModal';
 
 const Vehicles = () => {
   const [vehicles, setVehicles] = useState([]);
@@ -52,7 +53,7 @@ const Vehicles = () => {
   const [showCustomFuelInput, setShowCustomFuelInput] = useState(false);
   const [showPremiumOnly, setShowPremiumOnly] = useState(false);
   const [isExportingBookings, setIsExportingBookings] = useState(false);
-  
+
   // Date filter states
   const [rentalStartDateFilter, setRentalStartDateFilter] = useState('');
   const [rentalEndDateFilter, setRentalEndDateFilter] = useState('');
@@ -62,6 +63,10 @@ const Vehicles = () => {
   const transmissionTypes = ['Automatic', 'Manual'];
   const carTypes = ['SUV', 'SEDAN', 'HATCHBACK'];
   const fuelTypes = ['Petrol', 'Diesel'];
+
+  const [showHoldModal, setShowHoldModal] = useState(false);
+  const [holdVehicleId, setHoldVehicleId] = useState('');
+  const [holdVehicleName, setHoldVehicleName] = useState('');
 
   useEffect(() => {
     const fetchVehicles = async () => {
@@ -520,16 +525,16 @@ const Vehicles = () => {
 
       const ws = XLSX.utils.json_to_sheet(wsData);
       const wb = XLSX.utils.book_new();
-      
+
       const carName = viewVehicle.car?.carName?.replace(/\s+/g, '_') || viewVehicle.carName?.replace(/\s+/g, '_') || 'Vehicle';
-      
+
       // Add filter info to filename
       let fileName = `${carName}_Bookings`;
       if (rentalStartDateFilter) fileName += `_start_${rentalStartDateFilter}`;
       if (rentalEndDateFilter) fileName += `_end_${rentalEndDateFilter}`;
       if (bookingCreatedDateFilter) fileName += `_created_${bookingCreatedDateFilter}`;
       fileName += `_${new Date().toISOString().split('T')[0]}.xlsx`;
-      
+
       XLSX.utils.book_append_sheet(wb, ws, "Bookings");
 
       const wscols = [
@@ -670,78 +675,78 @@ const Vehicles = () => {
             Add Vehicle
           </Button>
         </div>
-      </div>      
+      </div>
 
       <div className="row mb-3 align-items-center">
-  <div className="col-md-3">
-    <Form.Select
-      value={searchType}
-      onChange={(e) => setSearchType(e.target.value)}
-    >
-      <option value="carName">Search by Car Name</option>
-      <option value="model">Search by Model</option>
-      <option value="location">Search by Location</option>
-      <option value="status">Search by Status</option>
-      <option value="vehicleNumber">Search by Vehicle Number</option>
-      <option value="runningStatus">Search by Running Status</option>
-      <option value="branchName">Search by Branch Name</option>
-      <option value="type">Search by Transmission Type</option>
-      <option value="carType">Search by Car Type</option>
-      <option value="fuel">Search by Fuel Type</option>
-      <option value="isPremium">Search by Premium Status</option>
-    </Form.Select>
-  </div>
+        <div className="col-md-3">
+          <Form.Select
+            value={searchType}
+            onChange={(e) => setSearchType(e.target.value)}
+          >
+            <option value="carName">Search by Car Name</option>
+            <option value="model">Search by Model</option>
+            <option value="location">Search by Location</option>
+            <option value="status">Search by Status</option>
+            <option value="vehicleNumber">Search by Vehicle Number</option>
+            <option value="runningStatus">Search by Running Status</option>
+            <option value="branchName">Search by Branch Name</option>
+            <option value="type">Search by Transmission Type</option>
+            <option value="carType">Search by Car Type</option>
+            <option value="fuel">Search by Fuel Type</option>
+            <option value="isPremium">Search by Premium Status</option>
+          </Form.Select>
+        </div>
 
-  <div className="col-md-4">
-    <InputGroup>
-      <FormControl
-        type="text"
-        placeholder={`Search by ${searchType}...`}
-        value={searchText}
-        onChange={(e) => setSearchText(e.target.value)}
-      />
+        <div className="col-md-4">
+          <InputGroup>
+            <FormControl
+              type="text"
+              placeholder={`Search by ${searchType}...`}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+            />
 
-      {searchText && (
-        <Button
-          variant="outline-secondary"
-          onClick={() => setSearchText('')}
-        >
-          Clear
-        </Button>
-      )}
-    </InputGroup>
-  </div>
+            {searchText && (
+              <Button
+                variant="outline-secondary"
+                onClick={() => setSearchText('')}
+              >
+                Clear
+              </Button>
+            )}
+          </InputGroup>
+        </div>
 
-  <div className="col-md-5">
-    <div className="d-flex justify-content-end flex-wrap">
-      <Button
-        variant={showPremiumOnly ? "warning" : "outline-warning"}
-        className="me-2 mb-2"
-        onClick={togglePremiumFilter}
-      >
-        <i className="fas fa-crown me-2"></i>
-        {showPremiumOnly ? "Show All Cars" : "Premium Cars Only"}
-      </Button>
+        <div className="col-md-5">
+          <div className="d-flex justify-content-end flex-wrap">
+            <Button
+              variant={showPremiumOnly ? "warning" : "outline-warning"}
+              className="me-2 mb-2"
+              onClick={togglePremiumFilter}
+            >
+              <i className="fas fa-crown me-2"></i>
+              {showPremiumOnly ? "Show All Cars" : "Premium Cars Only"}
+            </Button>
 
-      <Button
-        variant="info"
-        className="me-2 mb-2"
-        onClick={handleRefresh}
-      >
-        <i className="fas fa-sync-alt"></i> Refresh
-      </Button>
+            <Button
+              variant="info"
+              className="me-2 mb-2"
+              onClick={handleRefresh}
+            >
+              <i className="fas fa-sync-alt"></i> Refresh
+            </Button>
 
-      <Button
-        variant="success"
-        className="mb-2"
-        onClick={handleDownload}
-        disabled={vehicles.length === 0}
-      >
-        <i className="fas fa-file-excel me-2"></i>Export
-      </Button>
-    </div>
-  </div>
-</div>
+            <Button
+              variant="success"
+              className="mb-2"
+              onClick={handleDownload}
+              disabled={vehicles.length === 0}
+            >
+              <i className="fas fa-file-excel me-2"></i>Export
+            </Button>
+          </div>
+        </div>
+      </div>
 
       {loading ? (
         <div className="text-center py-5">
@@ -768,7 +773,7 @@ const Vehicles = () => {
               Showing only premium vehicles ({filteredVehicles.length} found)
             </Alert>
           )}
-          
+
           <div className="table-responsive">
             <Table bordered hover striped>
               <thead>
@@ -856,6 +861,18 @@ const Vehicles = () => {
                           onClick={() => openViewModal(vehicle._id)}
                         >
                           <i className="fas fa-eye"></i>
+                        </button>
+                        <button
+                          className="me-1 mb-1 mt-1 ms-1 btn btn-sm btn-outline-warning"
+                          onClick={() => {
+                            setHoldVehicleId(vehicle._id);
+                            setHoldVehicleName(vehicle.carName || 'Vehicle');
+                            setShowHoldModal(true);
+                          }}
+                          title="Place on Hold"
+                          disabled={vehicle.runningStatus === 'On Hold'}
+                        >
+                          <i className="fas fa-pause-circle"></i>
                         </button>
                         <button
                           className="me-1 mb-1 mt-1 ms-1 btn btn-sm btn-outline-warning"
@@ -1128,10 +1145,10 @@ const Vehicles = () => {
                 </div>
                 <div className="mb-3">
                   <strong>Branch Coordinates:</strong>{' '}
-                  {viewVehicle.car?.branch?.location?.coordinates ? 
-                    `${viewVehicle.car.branch.location.coordinates[1]}, ${viewVehicle.car.branch.location.coordinates[0]}` : 
-                    viewVehicle.branch?.location?.coordinates ? 
-                    `${viewVehicle.branch.location.coordinates[1]}, ${viewVehicle.branch.location.coordinates[0]}` : '-'}
+                  {viewVehicle.car?.branch?.location?.coordinates ?
+                    `${viewVehicle.car.branch.location.coordinates[1]}, ${viewVehicle.car.branch.location.coordinates[0]}` :
+                    viewVehicle.branch?.location?.coordinates ?
+                      `${viewVehicle.branch.location.coordinates[1]}, ${viewVehicle.branch.location.coordinates[0]}` : '-'}
                 </div>
                 <div className="mb-3">
                   <strong>Transmission:</strong> {viewVehicle.car?.type || viewVehicle.type || '-'}
@@ -1317,8 +1334,8 @@ const Vehicles = () => {
                         />
                       </div>
                       {(rentalStartDateFilter || rentalEndDateFilter || bookingCreatedDateFilter) && (
-                        <Button 
-                          variant="outline-secondary" 
+                        <Button
+                          variant="outline-secondary"
                           size="sm"
                           onClick={clearDateFilters}
                           title="Clear Filters"
@@ -1329,10 +1346,10 @@ const Vehicles = () => {
                       )}
                     </div>
                   </div>
-                  
+
                   {viewVehicle.bookings && viewVehicle.bookings.length > 0 && (
-                    <Button 
-                      variant="success" 
+                    <Button
+                      variant="success"
                       size="sm"
                       onClick={handleExportCarBookings}
                       disabled={isExportingBookings}
@@ -1387,51 +1404,49 @@ const Vehicles = () => {
                           const bookingStartDate = booking.rentalStartDate ? new Date(booking.rentalStartDate).toISOString().split('T')[0] : '';
                           const bookingEndDate = booking.rentalEndDate ? new Date(booking.rentalEndDate).toISOString().split('T')[0] : '';
                           const bookingCreatedDate = booking.createdAt ? new Date(booking.createdAt).toISOString().split('T')[0] : '';
-                          
+
                           const matchesStartDate = !rentalStartDateFilter || bookingStartDate === rentalStartDateFilter;
                           const matchesEndDate = !rentalEndDateFilter || bookingEndDate === rentalEndDateFilter;
                           const matchesCreatedDate = !bookingCreatedDateFilter || bookingCreatedDate === bookingCreatedDateFilter;
-                          
+
                           if (!matchesStartDate || !matchesEndDate || !matchesCreatedDate) {
                             return null;
                           }
-                          
+
                           return (
                             <tr key={booking._id || index}>
                               <td>{index + 1}</td>
                               <td><small>{booking._id?.slice(-8) || '-'}</small></td>
                               <td>
                                 {booking.userId?.name || '-'}
-                                <br/><small className="text-muted">{booking.userId?.email || ''}</small>
+                                <br /><small className="text-muted">{booking.userId?.email || ''}</small>
                               </td>
                               <td>{booking.userId?.mobile || '-'}</td>
                               <td>
                                 {booking.rentalStartDate ? new Date(booking.rentalStartDate).toLocaleDateString() : '-'}
-                                <br/><small>{booking.from || ''}</small>
+                                <br /><small>{booking.from || ''}</small>
                               </td>
                               <td>
                                 {booking.rentalEndDate ? new Date(booking.rentalEndDate).toLocaleDateString() : '-'}
-                                <br/><small>{booking.to || ''}</small>
+                                <br /><small>{booking.to || ''}</small>
                               </td>
                               <td>
                                 {booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : '-'}
-                                <br/><small>{booking.createdAt ? new Date(booking.createdAt).toLocaleTimeString() : ''}</small>
+                                <br /><small>{booking.createdAt ? new Date(booking.createdAt).toLocaleTimeString() : ''}</small>
                               </td>
                               <td>₹{booking.totalPrice || 0}</td>
                               <td>
-                                <span className={`badge bg-${
-                                  booking.status === 'completed' ? 'success' : 
-                                  booking.status === 'cancelled' ? 'danger' : 
-                                  booking.status === 'active' ? 'primary' : 
-                                  booking.status === 'pending' ? 'warning' : 'secondary'
-                                }`}>
+                                <span className={`badge bg-${booking.status === 'completed' ? 'success' :
+                                  booking.status === 'cancelled' ? 'danger' :
+                                    booking.status === 'active' ? 'primary' :
+                                      booking.status === 'pending' ? 'warning' : 'secondary'
+                                  }`}>
                                   {booking.status || '-'}
                                 </span>
                               </td>
                               <td>
-                                <span className={`badge bg-${
-                                  booking.paymentStatus?.toLowerCase() === 'paid' ? 'success' : 'warning'
-                                }`}>
+                                <span className={`badge bg-${booking.paymentStatus?.toLowerCase() === 'paid' ? 'success' : 'warning'
+                                  }`}>
                                   {booking.paymentStatus || '-'}
                                 </span>
                               </td>
@@ -1458,8 +1473,8 @@ const Vehicles = () => {
                         const endDate = booking.rentalEndDate ? new Date(booking.rentalEndDate).toISOString().split('T')[0] : '';
                         const createdDate = booking.createdAt ? new Date(booking.createdAt).toISOString().split('T')[0] : '';
                         return (!rentalStartDateFilter || startDate === rentalStartDateFilter) &&
-                               (!rentalEndDateFilter || endDate === rentalEndDateFilter) &&
-                               (!bookingCreatedDateFilter || createdDate === bookingCreatedDateFilter);
+                          (!rentalEndDateFilter || endDate === rentalEndDateFilter) &&
+                          (!bookingCreatedDateFilter || createdDate === bookingCreatedDateFilter);
                       }).length;
                       if (filteredCount < viewVehicle.bookings.length) {
                         return (
@@ -1529,12 +1544,11 @@ const Vehicles = () => {
                   <div className="col-md-3">
                     <div className="mb-2">
                       <strong>Status:</strong>{' '}
-                      <span className={`badge bg-${
-                        viewBooking.status === 'completed' ? 'success' : 
-                        viewBooking.status === 'cancelled' ? 'danger' : 
-                        viewBooking.status === 'active' ? 'primary' : 
-                        viewBooking.status === 'pending' ? 'warning' : 'secondary'
-                      }`}>
+                      <span className={`badge bg-${viewBooking.status === 'completed' ? 'success' :
+                        viewBooking.status === 'cancelled' ? 'danger' :
+                          viewBooking.status === 'active' ? 'primary' :
+                            viewBooking.status === 'pending' ? 'warning' : 'secondary'
+                        }`}>
                         {viewBooking.status || '-'}
                       </span>
                     </div>
@@ -1542,9 +1556,8 @@ const Vehicles = () => {
                   <div className="col-md-3">
                     <div className="mb-2">
                       <strong>Payment:</strong>{' '}
-                      <span className={`badge bg-${
-                        viewBooking.paymentStatus?.toLowerCase() === 'paid' ? 'success' : 'warning'
-                      }`}>
+                      <span className={`badge bg-${viewBooking.paymentStatus?.toLowerCase() === 'paid' ? 'success' : 'warning'
+                        }`}>
                         {viewBooking.paymentStatus || '-'}
                       </span>
                     </div>
@@ -1562,8 +1575,8 @@ const Vehicles = () => {
                   <h5 className="text-primary mb-3">Documents</h5>
                   <div className="d-flex gap-2">
                     {viewBooking.depositPDF && (
-                      <Button 
-                        variant="success" 
+                      <Button
+                        variant="success"
                         size="sm"
                         href={`https://varahibackend.varahiselfdrivecars.com${viewBooking.depositPDF}`}
                         target="_blank"
@@ -1572,8 +1585,8 @@ const Vehicles = () => {
                       </Button>
                     )}
                     {viewBooking.finalBookingPDF && (
-                      <Button 
-                        variant="info" 
+                      <Button
+                        variant="info"
                         size="sm"
                         href={`https://varahibackend.varahiselfdrivecars.com${viewBooking.finalBookingPDF}`}
                         target="_blank"
@@ -1625,6 +1638,18 @@ const Vehicles = () => {
           <Button variant="secondary" onClick={closeBookingViewModal}>Close</Button>
         </Modal.Footer>
       </Modal>
+
+      {/* Hold Modal */}
+      <HoldModal
+        show={showHoldModal}
+        onHide={() => setShowHoldModal(false)}
+        vehicleId={holdVehicleId}
+        vehicleName={holdVehicleName}
+        onHoldSuccess={() => {
+          // Refresh the vehicle list after successful hold
+          handleRefresh();
+        }}
+      />
     </div>
   );
 };

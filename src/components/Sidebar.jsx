@@ -18,7 +18,8 @@ import {
   FaTools,
   FaMedal,
   FaQuestion,
-  FaQuestionCircle
+  FaQuestionCircle,
+  FaBan
 } from 'react-icons/fa';
 import '../assets/sidebar.css';
 
@@ -31,6 +32,7 @@ const Sidebar = ({ isCollapsed, onToggleCollapse, isMobile }) => {
     { path: '/admin/staff', icon: <FaUserTie />, label: 'Staff' },
     { path: '/admin/owners', icon: <FaUserFriends />, label: 'Owners' },   // new entry
     { path: '/admin/vehicles', icon: <FaCarSide />, label: 'Vehicles' },
+    { path: '/admin/hold-vehicles', icon: <FaBan />, label: 'Hold-Vehicles' },
     // { path: '/admin/premium-deposits', icon: <FaMedal />, label: 'Premium Deposits' },
     { path: '/admin/bookings', icon: <FaClipboardList />, label: 'Bookings' },
     { path: '/admin/owner-cars', icon: <FaQuestionCircle />, label: 'Pending Owner Cars' },
