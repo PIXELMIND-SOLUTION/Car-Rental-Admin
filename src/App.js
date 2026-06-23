@@ -22,6 +22,7 @@ import OwnerVehicles from './pages/OwnerVehicles';
 import OwnerBookings from './pages/OwnerBookings';
 import OwnerCars from './pages/OwnerCars';
 import HoldVehicles from './pages/HoldVehicles';
+import OfferSection from './pages/Offer-cars';
 
 function App() {
   return (
@@ -39,6 +40,7 @@ function App() {
             <Route path="users" element={<Users />} />
             <Route path="staff" element={<Staff />} />
             <Route path="vehicles" element={<Vehicles />} />
+            <Route path="offer-cars" element={<OfferSection />} />
             <Route path="hold-vehicles" element={<HoldVehicles />} />
             <Route path="bookings" element={<Bookings />} />
             <Route path="banners" element={<AdminBannerManager />} />
