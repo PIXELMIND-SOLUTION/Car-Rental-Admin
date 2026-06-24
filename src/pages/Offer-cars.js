@@ -1,112 +1,279 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Table, Button, Spinner, Alert, Badge, Modal, Form, 
-  Card, Row, Col, Pagination, InputGroup, ToastContainer, toast 
+  Card, Row, Col, Pagination 
 } from 'react-bootstrap';
-import { ToastContainer as ToastContainerLib, toast as toastLib } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { toast } from 'react-toastify';
 
 const OfferSection = () => {
-  // State for offer cars
-  const [offerCars, setOfferCars] = useState([]);
-  const [filteredOfferCars, setFilteredOfferCars] = useState([]);
-  const [allCars, setAllCars] = useState([]);
+  // State for vehicles
+  const [offerVehicles, setOfferVehicles] = useState([]);
+  const [allVehicles, setAllVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingOffers, setLoadingOffers] = useState(true);
   const [error, setError] = useState('');
   
   // Modal states
   const [showOfferModal, setShowOfferModal] = useState(false);
-  const [selectedCar, setSelectedCar] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchCarText, setSearchCarText] = useState('');
+  const [filteredCars, setFilteredCars] = useState([]);
   
+  // Form data for offer
+  const [formData, setFormData] = useState({
+    extraFreeDays: '',
+    offerDescription: '',
+    startDate: '',
+    endDate: '',
+    startTime: '',
+    endTime: ''
+  });
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   
-  // Filter states
+  // Search state for offer vehicles
   const [searchText, setSearchText] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'active', 'inactive'
-  const [filterPremium, setFilterPremium] = useState('all'); // 'all', 'premium', 'standard'
-  
-  // Offer form data
-  const [formData, setFormData] = useState({
-    hasOffer: true,
-    extraFreeDays: 1,
-    offerDescription: '',
-    startDate: '',
-    endDate: '',
-    startTime: '09:00 AM',
-    endTime: '06:00 PM'
-  });
 
-  // Fetch offer cars and all cars
-  const fetchData = async () => {
-    setLoading(true);
+  // Fetch all cars (to get cars without offers for selection)
+  const fetchAllVehicles = async () => {
     try {
-      // Fetch offer cars
-      const offerRes = await fetch('https://varahibackend.varahiselfdrivecars.com/api/car/offer-cars');
-      if (!offerRes.ok) throw new Error('Failed to fetch offer cars');
-      const offerData = await offerRes.json();
-      setOfferCars(offerData.cars || []);
-      setFilteredOfferCars(offerData.cars || []);
-
-      // Fetch all cars for selection
-      const carsRes = await fetch('https://varahibackend.varahiselfdrivecars.com/api/car/get-cars');
-      if (!carsRes.ok) throw new Error('Failed to fetch cars');
-      const carsData = await carsRes.json();
-      setAllCars(carsData.cars || []);
+      const response = await fetch('https://varahibackend.varahiselfdrivecars.com/api/car/get-cars');
+      if (!response.ok) {
+        throw new Error('Failed to fetch vehicles');
+      }
+      const data = await response.json();
+      const cars = data.cars || [];
       
+      // Filter cars without offers (hasOffer !== true)
+      const carsWithoutOffer = cars.filter(car => !car.hasOffer);
+      setAllVehicles(carsWithoutOffer);
+      setFilteredCars(carsWithoutOffer);
       setError('');
     } catch (err) {
       setError(err.message);
-      toastLib.error(err.message);
+      toast.error(err.message);
+    }
+  };
+
+  // Fetch offer cars
+  const fetchOfferVehicles = async () => {
+    setLoadingOffers(true);
+    try {
+      const response = await fetch('https://varahibackend.varahiselfdrivecars.com/api/car/offer-cars');
+      if (!response.ok) {
+        throw new Error('Failed to fetch offer vehicles');
+      }
+      const data = await response.json();
+      setOfferVehicles(data.cars || []);
+    } catch (err) {
+      toast.error(err.message);
     } finally {
-      setLoading(false);
+      setLoadingOffers(false);
     }
   };
 
   useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      await Promise.all([fetchAllVehicles(), fetchOfferVehicles()]);
+      setLoading(false);
+    };
     fetchData();
   }, []);
 
-  // Filter and search
+  // Filter offer vehicles based on search
+  const filteredOfferVehicles = offerVehicles.filter(vehicle => {
+    if (searchText.trim() === '') return true;
+    const searchLower = searchText.toLowerCase();
+    return (
+      vehicle.carName?.toLowerCase().includes(searchLower) ||
+      vehicle.model?.toLowerCase().includes(searchLower) ||
+      vehicle.vehicleNumber?.toLowerCase().includes(searchLower) ||
+      vehicle.location?.toLowerCase().includes(searchLower)
+    );
+  });
+
+  // Filter cars for selection modal
   useEffect(() => {
-    let filtered = [...offerCars];
-
-    // Status filter
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(car => {
-        const isActive = car.offerDetails?.isActive === true;
-        return filterStatus === 'active' ? isActive : !isActive;
-      });
-    }
-
-    // Premium filter
-    if (filterPremium !== 'all') {
-      filtered = filtered.filter(car => {
-        return filterPremium === 'premium' ? car.isPremium : !car.isPremium;
-      });
-    }
-
-    // Search filter
-    if (searchText.trim() !== '') {
-      const searchLower = searchText.toLowerCase();
-      filtered = filtered.filter(car =>
-        car.carName?.toLowerCase().includes(searchLower) ||
-        car.model?.toLowerCase().includes(searchLower) ||
-        car.vehicleNumber?.toLowerCase().includes(searchLower) ||
-        car.offerDetails?.offerDescription?.toLowerCase().includes(searchLower)
+    if (searchCarText.trim() === '') {
+      setFilteredCars(allVehicles);
+    } else {
+      const searchLower = searchCarText.toLowerCase();
+      const filtered = allVehicles.filter(vehicle =>
+        vehicle.carName?.toLowerCase().includes(searchLower) ||
+        vehicle.model?.toLowerCase().includes(searchLower) ||
+        vehicle.vehicleNumber?.toLowerCase().includes(searchLower) ||
+        vehicle.location?.toLowerCase().includes(searchLower)
       );
+      setFilteredCars(filtered);
+    }
+  }, [searchCarText, allVehicles]);
+
+  // Handle form change
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Open offer modal
+  const openOfferModal = () => {
+    setSelectedVehicle(null);
+    setFormData({
+      extraFreeDays: '',
+      offerDescription: '',
+      startDate: '',
+      endDate: '',
+      startTime: '',
+      endTime: ''
+    });
+    setSearchCarText('');
+    setShowOfferModal(true);
+  };
+
+  // Close offer modal
+  const closeOfferModal = () => {
+    setShowOfferModal(false);
+    setSelectedVehicle(null);
+    setFormData({
+      extraFreeDays: '',
+      offerDescription: '',
+      startDate: '',
+      endDate: '',
+      startTime: '',
+      endTime: ''
+    });
+    setSearchCarText('');
+  };
+
+  // Select vehicle from modal
+  const selectVehicle = (vehicle) => {
+    setSelectedVehicle(vehicle);
+    setSearchCarText('');
+  };
+
+  // Submit offer
+  const handleSubmitOffer = async (e) => {
+    e.preventDefault();
+    
+    if (!selectedVehicle) {
+      toast.error('Please select a vehicle first');
+      return;
     }
 
-    setFilteredOfferCars(filtered);
-    setCurrentPage(1);
-  }, [searchText, filterStatus, filterPremium, offerCars]);
+    // Validation
+    if (!formData.extraFreeDays || formData.extraFreeDays <= 0) {
+      toast.error('Please enter valid extra free days');
+      return;
+    }
+    if (!formData.offerDescription) {
+      toast.error('Please enter offer description');
+      return;
+    }
+    if (!formData.startDate) {
+      toast.error('Please select start date');
+      return;
+    }
+    if (!formData.endDate) {
+      toast.error('Please select end date');
+      return;
+    }
+    if (!formData.startTime) {
+      toast.error('Please select start time');
+      return;
+    }
+    if (!formData.endTime) {
+      toast.error('Please select end time');
+      return;
+    }
+
+    // Validate end date is after start date
+    if (new Date(formData.endDate) < new Date(formData.startDate)) {
+      toast.error('End date must be after start date');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        hasOffer: true,
+        extraFreeDays: parseInt(formData.extraFreeDays),
+        offerDescription: formData.offerDescription,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        startTime: formData.startTime,
+        endTime: formData.endTime
+      };
+
+      const response = await fetch(`https://varahibackend.varahiselfdrivecars.com/api/car/offer/${selectedVehicle._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to add offer');
+      }
+
+      toast.success(`Offer added to "${selectedVehicle.carName}" successfully!`);
+      
+      // Refresh data
+      await Promise.all([fetchAllVehicles(), fetchOfferVehicles()]);
+      closeOfferModal();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Remove offer
+  const handleRemoveOffer = async (vehicleId, vehicleName) => {
+    if (!window.confirm(`Are you sure you want to remove the offer from "${vehicleName}"?`)) {
+      return;
+    }
+
+    try {
+      const payload = {
+        hasOffer: false,
+        extraFreeDays: 0,
+        offerDescription: '',
+        startDate: '',
+        endDate: '',
+        startTime: '',
+        endTime: ''
+      };
+
+      const response = await fetch(`https://varahibackend.varahiselfdrivecars.com/api/car/offer/${vehicleId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to remove offer');
+      }
+
+      toast.success(`Offer removed from "${vehicleName}" successfully!`);
+      await Promise.all([fetchAllVehicles(), fetchOfferVehicles()]);
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
 
   // Pagination logic
-  const totalPages = Math.ceil(filteredOfferCars.length / itemsPerPage);
-  const paginatedCars = filteredOfferCars.slice(
+  const totalPages = Math.ceil(filteredOfferVehicles.length / itemsPerPage);
+  const paginatedVehicles = filteredOfferVehicles.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
@@ -131,7 +298,9 @@ const OfferSection = () => {
 
     if (startPage > 1) {
       pages.push(
-        <Pagination.Item key={1} onClick={() => setCurrentPage(1)}>1</Pagination.Item>
+        <Pagination.Item key={1} onClick={() => setCurrentPage(1)}>
+          1
+        </Pagination.Item>
       );
       if (startPage > 2) {
         pages.push(<Pagination.Ellipsis key="ellipsis-start" disabled />);
@@ -163,325 +332,159 @@ const OfferSection = () => {
 
     return (
       <Pagination className="justify-content-center flex-wrap">
-        <Pagination.First onClick={() => setCurrentPage(1)} disabled={currentPage === 1} />
-        <Pagination.Prev onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)} disabled={currentPage === 1} />
+        <Pagination.First 
+          onClick={() => setCurrentPage(1)} 
+          disabled={currentPage === 1}
+        />
+        <Pagination.Prev 
+          onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)}
+          disabled={currentPage === 1}
+        />
         {pages}
-        <Pagination.Next onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)} disabled={currentPage === totalPages} />
-        <Pagination.Last onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} />
+        <Pagination.Next 
+          onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)}
+          disabled={currentPage === totalPages}
+        />
+        <Pagination.Last 
+          onClick={() => setCurrentPage(totalPages)}
+          disabled={currentPage === totalPages}
+        />
       </Pagination>
     );
   };
 
-  // Handle form changes
-  const handleFormChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
-  };
-
-  // Open modal for adding offer
-  const openAddOfferModal = () => {
-    setIsEditing(false);
-    setSelectedCar(null);
-    setFormData({
-      hasOffer: true,
-      extraFreeDays: 1,
-      offerDescription: '',
-      startDate: '',
-      endDate: '',
-      startTime: '09:00 AM',
-      endTime: '06:00 PM'
-    });
-    setShowOfferModal(true);
-  };
-
-  // Open modal for editing offer
-  const openEditOfferModal = (car) => {
-    setIsEditing(true);
-    setSelectedCar(car);
-    setFormData({
-      hasOffer: car.hasOffer ?? true,
-      extraFreeDays: car.offerDetails?.extraFreeDays || 1,
-      offerDescription: car.offerDetails?.offerDescription || '',
-      startDate: car.offerDetails?.startDate ? new Date(car.offerDetails.startDate).toISOString().split('T')[0] : '',
-      endDate: car.offerDetails?.endDate ? new Date(car.offerDetails.endDate).toISOString().split('T')[0] : '',
-      startTime: car.offerDetails?.startTime || '09:00 AM',
-      endTime: car.offerDetails?.endTime || '06:00 PM'
-    });
-    setShowOfferModal(true);
-  };
-
-  // Submit offer
-  const handleSubmitOffer = async (e) => {
-    e.preventDefault();
-    
-    if (!selectedCar && !isEditing) {
-      toastLib.error('Please select a car first');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const carId = selectedCar?._id || formData.carId;
-      if (!carId) {
-        toastLib.error('Car ID is required');
-        return;
-      }
-
-      const payload = {
-        hasOffer: formData.hasOffer,
-        extraFreeDays: parseInt(formData.extraFreeDays) || 1,
-        offerDescription: formData.offerDescription,
-        startDate: formData.startDate,
-        endDate: formData.endDate,
-        startTime: formData.startTime,
-        endTime: formData.endTime
-      };
-
-      const response = await fetch(`https://varahibackend.varahiselfdrivecars.com/api/car/offer/${carId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update offer');
-      }
-
-      const data = await response.json();
-      toastLib.success(`Offer ${isEditing ? 'updated' : 'added'} successfully for ${data.car?.carName || 'vehicle'}`);
-      
-      // Refresh data
-      fetchData();
-      setShowOfferModal(false);
-    } catch (err) {
-      toastLib.error(err.message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Remove offer
-  const handleRemoveOffer = async (car) => {
-    if (!window.confirm(`Are you sure you want to remove the offer from "${car.carName}"?`)) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`https://varahibackend.varahiselfdrivecars.com/api/car/offer/${car._id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          hasOffer: false,
-          extraFreeDays: 0,
-          offerDescription: '',
-          startDate: '',
-          endDate: '',
-          startTime: '',
-          endTime: ''
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to remove offer');
-      }
-
-      toastLib.success(`Offer removed from "${car.carName}"`);
-      fetchData();
-    } catch (err) {
-      toastLib.error(err.message);
-    }
-  };
-
-  // Format date
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
-  };
-
-  // Check if offer is active
-  const isOfferActive = (offerDetails) => {
-    if (!offerDetails) return false;
-    if (offerDetails.isActive === false) return false;
-    
-    try {
-      const startDate = new Date(offerDetails.startDate);
-      const endDate = new Date(offerDetails.endDate);
-      const now = new Date();
-      return now >= startDate && now <= endDate;
-    } catch {
-      return false;
-    }
-  };
-
-  // Get status badge
-  const getOfferStatusBadge = (car) => {
-    if (!car.offerDetails) {
-      return <Badge bg="secondary">No Offer</Badge>;
-    }
-    
-    const active = isOfferActive(car.offerDetails);
-    if (active) {
-      return <Badge bg="success">Active</Badge>;
-    }
-    return <Badge bg="danger">Expired</Badge>;
-  };
-
-  // Mobile card view
-  const renderMobileCard = (car) => {
-    const offerDetails = car.offerDetails || {};
-    const active = isOfferActive(offerDetails);
-
+  // Mobile card view for offer vehicles
+  const renderMobileCard = (vehicle) => {
     return (
-      <Card key={car._id} className={`mb-3 ${active ? 'border-success' : 'border-danger'}`}>
+      <Card key={vehicle._id} className="mb-3 border-warning">
         <Card.Body>
           <div className="d-flex justify-content-between align-items-start mb-2">
             <div>
-              <h5 className="mb-1">{car.carName}</h5>
-              <div className="text-muted small">{car.model} • {car.vehicleNumber}</div>
+              <h5 className="mb-1">{vehicle.carName}</h5>
+              <div className="text-muted small">{vehicle.model || '-'}</div>
             </div>
-            {getOfferStatusBadge(car)}
+            <Badge bg={vehicle.offerDetails?.isActive ? 'success' : 'warning'}>
+              {vehicle.offerDetails?.isActive ? 'Active' : 'Inactive'}
+            </Badge>
           </div>
 
-          <div className="small">
-            <div><strong>Extra Free Days:</strong> {offerDetails.extraFreeDays || 0}</div>
-            <div><strong>Period:</strong> {formatDate(offerDetails.startDate)} - {formatDate(offerDetails.endDate)}</div>
-            <div><strong>Time:</strong> {offerDetails.startTime || '-'} - {offerDetails.endTime || '-'}</div>
-            <div><strong>Description:</strong> {offerDetails.offerDescription || '-'}</div>
+          <div className="row small mb-2">
+            <div className="col-6">
+              <strong>Vehicle No:</strong> {vehicle.vehicleNumber || '-'}
+            </div>
+            <div className="col-6">
+              <strong>Free Days:</strong> +{vehicle.offerDetails?.extraFreeDays || 0}
+            </div>
           </div>
 
-          <div className="mt-2 d-flex gap-2">
-            <Button size="sm" variant="warning" onClick={() => openEditOfferModal(car)}>
-              <i className="fas fa-edit me-1"></i>Edit
-            </Button>
-            <Button size="sm" variant="danger" onClick={() => handleRemoveOffer(car)}>
-              <i className="fas fa-trash me-1"></i>Remove
-            </Button>
+          <div className="small mb-2">
+            <strong>Offer:</strong> {vehicle.offerDetails?.offerDescription || '-'}
           </div>
+
+          <div className="small mb-2">
+            <div>
+              <strong>Period:</strong> {vehicle.offerDetails?.startDate ? 
+                new Date(vehicle.offerDetails.startDate).toLocaleDateString() : '-'} - {' '}
+              {vehicle.offerDetails?.endDate ? 
+                new Date(vehicle.offerDetails.endDate).toLocaleDateString() : '-'}
+            </div>
+            <div className="text-muted">
+              {vehicle.offerDetails?.startTime} - {vehicle.offerDetails?.endTime}
+            </div>
+          </div>
+
+          <Button
+            variant="outline-danger"
+            size="sm"
+            className="w-100 mt-2"
+            onClick={() => handleRemoveOffer(vehicle._id, vehicle.carName)}
+          >
+            <i className="fas fa-times me-2"></i>
+            Remove Offer
+          </Button>
         </Card.Body>
       </Card>
     );
   };
 
-  // Available cars for selection (cars without offers)
-  const availableCars = allCars.filter(car => {
-    const hasOffer = offerCars.some(oc => oc._id === car._id);
-    return !hasOffer && car.status === 'active';
-  });
-
   return (
     <div className="container-fluid p-3">
-      <ToastContainerLib position="top-right" autoClose={3000} />
-
       {/* Header */}
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-4">
-        <h2>
-          <i className="fas fa-tag me-2 text-success"></i>
-          Vehicle Offers
+        <h2 className="mb-2 mb-md-0">
+          <i className="fas fa-tags me-2 text-primary"></i>
+          Offer Management
         </h2>
-        <div className="d-flex gap-2">
-          <Button variant="outline-primary" onClick={fetchData} disabled={loading}>
-            <i className="fas fa-sync-alt me-2"></i>Refresh
-          </Button>
-          <Button variant="success" onClick={openAddOfferModal}>
-            <i className="fas fa-plus me-2"></i>Add Offer
-          </Button>
-        </div>
+        <Button 
+          variant="primary" 
+          onClick={openOfferModal}
+        >
+          <i className="fas fa-plus me-2"></i>
+          Add New Offer
+        </Button>
       </div>
 
       {/* Summary Cards */}
       <Row className="mb-4 g-2 g-md-3">
-        <Col xs={6} md={3}>
+        <Col xs={6} md={4}>
           <Card className="text-center border-primary h-100">
             <Card.Body className="p-2 p-md-3">
-              <h4 className="text-primary mb-1 mb-md-2">{offerCars.length}</h4>
+              <h4 className="text-primary mb-1 mb-md-2">{offerVehicles.length}</h4>
               <Card.Text className="text-muted small mb-0">Total Offers</Card.Text>
             </Card.Body>
           </Card>
         </Col>
-        <Col xs={6} md={3}>
+        <Col xs={6} md={4}>
           <Card className="text-center border-success h-100">
             <Card.Body className="p-2 p-md-3">
               <h4 className="text-success mb-1 mb-md-2">
-                {offerCars.filter(c => isOfferActive(c.offerDetails)).length}
+                {offerVehicles.filter(v => v.offerDetails?.isActive).length}
               </h4>
               <Card.Text className="text-muted small mb-0">Active Offers</Card.Text>
             </Card.Body>
           </Card>
         </Col>
-        <Col xs={6} md={3}>
-          <Card className="text-center border-danger h-100">
-            <Card.Body className="p-2 p-md-3">
-              <h4 className="text-danger mb-1 mb-md-2">
-                {offerCars.filter(c => !isOfferActive(c.offerDetails) && c.offerDetails).length}
-              </h4>
-              <Card.Text className="text-muted small mb-0">Expired Offers</Card.Text>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col xs={6} md={3}>
+        <Col xs={12} md={4}>
           <Card className="text-center border-info h-100">
             <Card.Body className="p-2 p-md-3">
-              <h4 className="text-info mb-1 mb-md-2">
-                {offerCars.filter(c => c.isPremium).length}
-              </h4>
-              <Card.Text className="text-muted small mb-0">Premium Offers</Card.Text>
+              <h4 className="text-info mb-1 mb-md-2">{allVehicles.length}</h4>
+              <Card.Text className="text-muted small mb-0">Available for Offer</Card.Text>
             </Card.Body>
           </Card>
         </Col>
       </Row>
 
-      {/* Filters */}
+      {/* Search and Filters */}
       <div className="row mb-3 g-2">
-        <div className="col-12 col-md-4 col-lg-3">
-          <InputGroup>
-            <InputGroup.Text><i className="fas fa-search"></i></InputGroup.Text>
-            <Form.Control
+        <div className="col-12 col-md-6">
+          <div className="input-group">
+            <span className="input-group-text">
+              <i className="fas fa-search"></i>
+            </span>
+            <input
               type="text"
-              placeholder="Search offers..."
+              className="form-control"
+              placeholder="Search offers by name, model, number..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
             />
             {searchText && (
-              <Button variant="outline-secondary" onClick={() => setSearchText('')}>
+              <button
+                className="btn btn-outline-secondary"
+                type="button"
+                onClick={() => setSearchText('')}
+              >
                 <i className="fas fa-times"></i>
-              </Button>
+              </button>
             )}
-          </InputGroup>
+          </div>
         </div>
-        <div className="col-6 col-md-4 col-lg-3">
-          <Form.Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-            <option value="all">All Status</option>
-            <option value="active">Active Only</option>
-            <option value="inactive">Inactive Only</option>
-          </Form.Select>
-        </div>
-        <div className="col-6 col-md-4 col-lg-3">
-          <Form.Select value={filterPremium} onChange={(e) => setFilterPremium(e.target.value)}>
-            <option value="all">All Vehicles</option>
-            <option value="premium">Premium Only</option>
-            <option value="standard">Standard Only</option>
-          </Form.Select>
-        </div>
-        <div className="col-12 col-md-12 col-lg-3 d-flex justify-content-end align-items-center">
+        <div className="col-12 col-md-6 d-flex justify-content-end align-items-center">
           <div className="d-flex align-items-center gap-2 flex-wrap">
             <span className="text-muted small">Show:</span>
-            <Form.Select 
-              size="sm" 
-              className="w-auto" 
-              value={itemsPerPage} 
+            <select
+              className="form-select form-select-sm w-auto"
+              value={itemsPerPage}
               onChange={(e) => {
                 setItemsPerPage(Number(e.target.value));
                 setCurrentPage(1);
@@ -491,45 +494,47 @@ const OfferSection = () => {
               <option value={10}>10</option>
               <option value={20}>20</option>
               <option value={50}>50</option>
-            </Form.Select>
-            <span className="text-muted small">{filteredOfferCars.length} offers</span>
+            </select>
+            <span className="text-muted small">
+              {filteredOfferVehicles.length} vehicle{filteredOfferVehicles.length !== 1 ? 's' : ''}
+            </span>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      {loading ? (
+      {loadingOffers ? (
         <div className="text-center py-5">
           <Spinner animation="border" variant="primary" />
           <p className="mt-2 text-muted">Loading offers...</p>
         </div>
       ) : error ? (
         <Alert variant="danger">{error}</Alert>
-      ) : offerCars.length === 0 ? (
+      ) : offerVehicles.length === 0 ? (
         <div className="text-center py-5">
           <div className="mb-4">
-            <i className="fas fa-tag fa-4x text-muted"></i>
+            <i className="fas fa-gift fa-4x text-muted"></i>
           </div>
           <h4 className="text-muted mb-3">No Offers Available</h4>
-          <p className="text-muted mb-4">Create your first offer to attract more customers.</p>
-          <Button variant="success" onClick={openAddOfferModal}>
-            <i className="fas fa-plus me-2"></i>Create Offer
+          <p className="text-muted mb-4">Click the "Add New Offer" button to create your first offer.</p>
+          <Button 
+            variant="primary" 
+            onClick={openOfferModal}
+          >
+            <i className="fas fa-plus me-2"></i>
+            Add New Offer
           </Button>
         </div>
-      ) : filteredOfferCars.length === 0 ? (
+      ) : filteredOfferVehicles.length === 0 ? (
         <div className="text-center py-4">
           <i className="fas fa-filter fa-3x text-muted mb-3"></i>
-          <h5 className="text-muted">No offers match your filters</h5>
+          <h5 className="text-muted">No offers match your search</h5>
           <Button 
             variant="outline-secondary" 
             size="sm" 
-            onClick={() => {
-              setSearchText('');
-              setFilterStatus('all');
-              setFilterPremium('all');
-            }}
+            onClick={() => setSearchText('')}
           >
-            Clear Filters
+            Clear Search
           </Button>
         </div>
       ) : (
@@ -543,72 +548,66 @@ const OfferSection = () => {
                     <th>#</th>
                     <th>Vehicle</th>
                     <th>Model</th>
-                    <th>Vehicle No.</th>
-                    <th>Extra Days</th>
-                    <th>Status</th>
-                    <th>Period</th>
+                    <th>Vehicle No</th>
+                    <th>Free Days</th>
                     <th>Description</th>
+                    <th>Offer Period</th>
+                    <th>Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedCars.map((car, index) => {
-                    const offerDetails = car.offerDetails || {};
-                    const active = isOfferActive(offerDetails);
-
-                    return (
-                      <tr key={car._id} className={active ? 'table-success' : 'table-light'}>
-                        <td className="text-center">{(currentPage - 1) * itemsPerPage + index + 1}</td>
-                        <td>
-                          <strong>{car.carName}</strong>
-                          <br />
-                          <small className="text-muted">
-                            {car.isPremium && <Badge bg="warning" text="dark" className="me-1">Premium</Badge>}
-                            ID: {car._id.slice(-6)}
-                          </small>
-                        </td>
-                        <td>{car.model || '-'}</td>
-                        <td>{car.vehicleNumber || '-'}</td>
-                        <td className="text-center">
-                          <Badge bg="primary" className="fs-6">
-                            {offerDetails.extraFreeDays || 0}
-                          </Badge>
-                        </td>
-                        <td>{getOfferStatusBadge(car)}</td>
-                        <td>
-                          <div className="small">
-                            <div><strong>From:</strong> {formatDate(offerDetails.startDate)}</div>
-                            <div><strong>To:</strong> {formatDate(offerDetails.endDate)}</div>
-                            <div className="text-muted">
-                              {offerDetails.startTime || '-'} - {offerDetails.endTime || '-'}
-                            </div>
+                  {paginatedVehicles.map((vehicle, index) => (
+                    <tr key={vehicle._id}>
+                      <td className="text-center">{(currentPage - 1) * itemsPerPage + index + 1}</td>
+                      <td>
+                        <strong>{vehicle.carName}</strong>
+                        <br />
+                        <small className="text-muted">ID: {vehicle._id.slice(-6)}</small>
+                      </td>
+                      <td>{vehicle.model || '-'}</td>
+                      <td>{vehicle.vehicleNumber || '-'}</td>
+                      <td>
+                        <Badge bg="success" className="fs-6">
+                          +{vehicle.offerDetails?.extraFreeDays || 0} day{vehicle.offerDetails?.extraFreeDays > 1 ? 's' : ''}
+                        </Badge>
+                      </td>
+                      <td>
+                        <div className="small">{vehicle.offerDetails?.offerDescription || '-'}</div>
+                      </td>
+                      <td>
+                        <div className="small">
+                          <div>
+                            <strong>From:</strong>{' '}
+                            {vehicle.offerDetails?.startDate ? 
+                              new Date(vehicle.offerDetails.startDate).toLocaleDateString() : '-'}
                           </div>
-                        </td>
-                        <td>
-                          <div className="small text-truncate" style={{ maxWidth: '150px' }}>
-                            {offerDetails.offerDescription || '-'}
+                          <div>
+                            <strong>To:</strong>{' '}
+                            {vehicle.offerDetails?.endDate ? 
+                              new Date(vehicle.offerDetails.endDate).toLocaleDateString() : '-'}
                           </div>
-                        </td>
-                        <td className="text-center">
-                          <Button 
-                            variant="warning" 
-                            size="sm" 
-                            className="me-1 mb-1"
-                            onClick={() => openEditOfferModal(car)}
-                          >
-                            <i className="fas fa-edit"></i>
-                          </Button>
-                          <Button 
-                            variant="danger" 
-                            size="sm"
-                            onClick={() => handleRemoveOffer(car)}
-                          >
-                            <i className="fas fa-trash"></i>
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          <div className="text-muted">
+                            {vehicle.offerDetails?.startTime} - {vehicle.offerDetails?.endTime}
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <Badge bg={vehicle.offerDetails?.isActive ? 'success' : 'warning'}>
+                          {vehicle.offerDetails?.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </td>
+                      <td className="text-center">
+                        <Button
+                          variant="outline-danger"
+                          size="sm"
+                          onClick={() => handleRemoveOffer(vehicle._id, vehicle.carName)}
+                        >
+                          <i className="fas fa-times me-1"></i> Remove
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </Table>
             </div>
@@ -616,231 +615,266 @@ const OfferSection = () => {
 
           {/* Mobile Card View */}
           <div className="d-block d-lg-none">
-            {paginatedCars.map(car => renderMobileCard(car))}
+            {paginatedVehicles.map((vehicle) => renderMobileCard(vehicle))}
           </div>
 
-          {/* Pagination Info */}
+          {/* Items info */}
           <div className="d-flex justify-content-between align-items-center flex-wrap mt-3">
             <div className="text-muted small">
-              Showing {paginatedCars.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} -{' '}
-              {Math.min(currentPage * itemsPerPage, filteredOfferCars.length)} of {filteredOfferCars.length} offers
+              Showing {paginatedVehicles.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} -{' '}
+              {Math.min(currentPage * itemsPerPage, filteredOfferVehicles.length)} of {filteredOfferVehicles.length} vehicles
             </div>
           </div>
 
+          {/* Pagination */}
           {renderPagination()}
         </>
       )}
 
-      {/* Offer Modal */}
-      <Modal show={showOfferModal} onHide={() => setShowOfferModal(false)} centered size="lg">
+      {/* Add Offer Modal */}
+      <Modal show={showOfferModal} onHide={closeOfferModal} centered size="lg" scrollable>
         <Modal.Header closeButton>
           <Modal.Title>
-            <i className="fas fa-tag me-2 text-success"></i>
-            {isEditing ? 'Edit Offer' : 'Add New Offer'}
+            <i className="fas fa-tag me-2 text-primary"></i>
+            Add New Offer
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form onSubmit={handleSubmitOffer}>
-            {/* Car Selection */}
-            {!isEditing && (
-              <Form.Group className="mb-3">
-                <Form.Label>Select Car <span className="text-danger">*</span></Form.Label>
-                <Form.Select 
-                  required
-                  value={formData.carId || ''}
-                  onChange={(e) => {
-                    const carId = e.target.value;
-                    const car = allCars.find(c => c._id === carId);
-                    setSelectedCar(car);
-                    setFormData(prev => ({ ...prev, carId }));
-                  }}
-                >
-                  <option value="">Select a car</option>
-                  {availableCars.map(car => (
-                    <option key={car._id} value={car._id}>
-                      {car.carName} - {car.model} {car.isPremium ? '⭐' : ''}
-                    </option>
-                  ))}
-                </Form.Select>
-                {availableCars.length === 0 && (
-                  <small className="text-muted">All active cars already have offers</small>
-                )}
-              </Form.Group>
-            )}
-
-            {/* Offer Details */}
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Extra Free Days <span className="text-danger">*</span></Form.Label>
-                  <Form.Control
-                    type="number"
-                    name="extraFreeDays"
-                    value={formData.extraFreeDays}
-                    onChange={handleFormChange}
-                    min={1}
-                    max={30}
-                    required
-                  />
-                  <Form.Text className="text-muted">
-                    Number of free days for the customer
-                  </Form.Text>
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Has Offer</Form.Label>
-                  <Form.Check
-                    type="switch"
-                    name="hasOffer"
-                    label={formData.hasOffer ? "Active" : "Inactive"}
-                    checked={formData.hasOffer}
-                    onChange={handleFormChange}
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Offer Description <span className="text-danger">*</span></Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={2}
-                name="offerDescription"
-                value={formData.offerDescription}
-                onChange={handleFormChange}
-                placeholder="Describe the offer (e.g., Get 1 day free on weekly booking)"
-                required
-              />
-            </Form.Group>
-
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Start Date <span className="text-danger">*</span></Form.Label>
-                  <Form.Control
-                    type="date"
-                    name="startDate"
-                    value={formData.startDate}
-                    onChange={handleFormChange}
-                    required
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>End Date <span className="text-danger">*</span></Form.Label>
-                  <Form.Control
-                    type="date"
-                    name="endDate"
-                    value={formData.endDate}
-                    onChange={handleFormChange}
-                    required
-                    min={formData.startDate}
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Start Time <span className="text-danger">*</span></Form.Label>
-                  <Form.Select
-                    name="startTime"
-                    value={formData.startTime}
-                    onChange={handleFormChange}
-                    required
-                  >
-                    <option value="12:00 AM">12:00 AM</option>
-                    <option value="01:00 AM">01:00 AM</option>
-                    <option value="02:00 AM">02:00 AM</option>
-                    <option value="03:00 AM">03:00 AM</option>
-                    <option value="04:00 AM">04:00 AM</option>
-                    <option value="05:00 AM">05:00 AM</option>
-                    <option value="06:00 AM">06:00 AM</option>
-                    <option value="07:00 AM">07:00 AM</option>
-                    <option value="08:00 AM">08:00 AM</option>
-                    <option value="09:00 AM">09:00 AM</option>
-                    <option value="10:00 AM">10:00 AM</option>
-                    <option value="11:00 AM">11:00 AM</option>
-                    <option value="12:00 PM">12:00 PM</option>
-                    <option value="01:00 PM">01:00 PM</option>
-                    <option value="02:00 PM">02:00 PM</option>
-                    <option value="03:00 PM">03:00 PM</option>
-                    <option value="04:00 PM">04:00 PM</option>
-                    <option value="05:00 PM">05:00 PM</option>
-                    <option value="06:00 PM">06:00 PM</option>
-                    <option value="07:00 PM">07:00 PM</option>
-                    <option value="08:00 PM">08:00 PM</option>
-                    <option value="09:00 PM">09:00 PM</option>
-                    <option value="10:00 PM">10:00 PM</option>
-                    <option value="11:00 PM">11:00 PM</option>
-                  </Form.Select>
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>End Time <span className="text-danger">*</span></Form.Label>
-                  <Form.Select
-                    name="endTime"
-                    value={formData.endTime}
-                    onChange={handleFormChange}
-                    required
-                  >
-                    <option value="12:00 AM">12:00 AM</option>
-                    <option value="01:00 AM">01:00 AM</option>
-                    <option value="02:00 AM">02:00 AM</option>
-                    <option value="03:00 AM">03:00 AM</option>
-                    <option value="04:00 AM">04:00 AM</option>
-                    <option value="05:00 AM">05:00 AM</option>
-                    <option value="06:00 AM">06:00 AM</option>
-                    <option value="07:00 AM">07:00 AM</option>
-                    <option value="08:00 AM">08:00 AM</option>
-                    <option value="09:00 AM">09:00 AM</option>
-                    <option value="10:00 AM">10:00 AM</option>
-                    <option value="11:00 AM">11:00 AM</option>
-                    <option value="12:00 PM">12:00 PM</option>
-                    <option value="01:00 PM">01:00 PM</option>
-                    <option value="02:00 PM">02:00 PM</option>
-                    <option value="03:00 PM">03:00 PM</option>
-                    <option value="04:00 PM">04:00 PM</option>
-                    <option value="05:00 PM">05:00 PM</option>
-                    <option value="06:00 PM">06:00 PM</option>
-                    <option value="07:00 PM">07:00 PM</option>
-                    <option value="08:00 PM">08:00 PM</option>
-                    <option value="09:00 PM">09:00 PM</option>
-                    <option value="10:00 PM">10:00 PM</option>
-                    <option value="11:00 PM">11:00 PM</option>
-                  </Form.Select>
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <div className="d-flex justify-content-end gap-2 mt-3">
-              <Button variant="secondary" onClick={() => setShowOfferModal(false)}>
-                Cancel
-              </Button>
-              <Button variant="success" type="submit" disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <>
-                    <Spinner as="span" animation="border" size="sm" className="me-2" />
-                    Saving...
-                  </>
+            <div className="row">
+              {/* Car Selection Section */}
+              <div className="col-12 mb-3">
+                <h6 className="text-primary mb-3">
+                  <i className="fas fa-car me-2"></i>
+                  Select Vehicle
+                </h6>
+                
+                {selectedVehicle ? (
+                  <div className="bg-success bg-opacity-10 p-3 rounded border border-success">
+                    <div className="d-flex justify-content-between align-items-center">
+                      <div>
+                        <strong>{selectedVehicle.carName}</strong>
+                        <br />
+                        <small className="text-muted">
+                          {selectedVehicle.model} • {selectedVehicle.vehicleNumber} • {selectedVehicle.location}
+                        </small>
+                      </div>
+                      <Button
+                        variant="outline-secondary"
+                        size="sm"
+                        onClick={() => setSelectedVehicle(null)}
+                      >
+                        <i className="fas fa-exchange-alt me-1"></i> Change
+                      </Button>
+                    </div>
+                  </div>
                 ) : (
                   <>
-                    <i className="fas fa-save me-2"></i>
-                    {isEditing ? 'Update Offer' : 'Add Offer'}
+                    <div className="input-group mb-3">
+                      <span className="input-group-text">
+                        <i className="fas fa-search"></i>
+                      </span>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Search vehicles by name, model, number..."
+                        value={searchCarText}
+                        onChange={(e) => setSearchCarText(e.target.value)}
+                      />
+                      {searchCarText && (
+                        <button
+                          className="btn btn-outline-secondary"
+                          type="button"
+                          onClick={() => setSearchCarText('')}
+                        >
+                          <i className="fas fa-times"></i>
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="vehicle-selection-list" style={{ maxHeight: '250px', overflowY: 'auto' }}>
+                      {filteredCars.length === 0 ? (
+                        <Alert variant="info">
+                          {allVehicles.length === 0 ? 
+                            'No vehicles available for offers. All vehicles already have offers.' : 
+                            'No vehicles match your search.'}
+                        </Alert>
+                      ) : (
+                        <div className="list-group">
+                          {filteredCars.map((vehicle) => (
+                            <button
+                              key={vehicle._id}
+                              type="button"
+                              className="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                              onClick={() => selectVehicle(vehicle)}
+                            >
+                              <div>
+                                <strong>{vehicle.carName}</strong>
+                                <br />
+                                <small className="text-muted">
+                                  {vehicle.model} • {vehicle.vehicleNumber || 'N/A'} • {vehicle.location || 'N/A'}
+                                </small>
+                              </div>
+                              <Badge bg="secondary">₹{vehicle.pricePerDay}/day</Badge>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </>
                 )}
-              </Button>
+              </div>
+
+              {selectedVehicle && (
+                <>
+                  <hr />
+                  
+                  {/* Offer Details */}
+                  <div className="col-md-6 mb-3">
+                    <Form.Label className="fw-bold">
+                      Extra Free Days <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Control
+                      type="number"
+                      name="extraFreeDays"
+                      value={formData.extraFreeDays}
+                      onChange={handleChange}
+                      min="1"
+                      placeholder="e.g., 1"
+                      required
+                    />
+                    <Form.Text className="text-muted">
+                      Number of free days offered with booking
+                    </Form.Text>
+                  </div>
+
+                  <div className="col-md-6 mb-3">
+                    <Form.Label className="fw-bold">
+                      Offer Description <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Control
+                      type="text"
+                      name="offerDescription"
+                      value={formData.offerDescription}
+                      onChange={handleChange}
+                      placeholder="e.g., Get 1 day free on weekly booking"
+                      required
+                    />
+                  </div>
+
+                  {/* Offer Period */}
+                  <div className="col-12">
+                    <h6 className="text-primary mb-3">
+                      <i className="fas fa-calendar-alt me-2"></i>
+                      Offer Period
+                    </h6>
+                  </div>
+
+                  <div className="col-md-6 mb-3">
+                    <Form.Label className="fw-bold">
+                      Start Date <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Control
+                      type="date"
+                      name="startDate"
+                      value={formData.startDate}
+                      onChange={handleChange}
+                      min={new Date().toISOString().split('T')[0]}
+                      required
+                    />
+                  </div>
+
+                  <div className="col-md-6 mb-3">
+                    <Form.Label className="fw-bold">
+                      Start Time <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Control
+                      type="time"
+                      name="startTime"
+                      value={formData.startTime}
+                      onChange={handleChange}
+                      required
+                    />
+                    <Form.Text className="text-muted">
+                      Format: HH:MM (24-hour)
+                    </Form.Text>
+                  </div>
+
+                  <div className="col-md-6 mb-3">
+                    <Form.Label className="fw-bold">
+                      End Date <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Control
+                      type="date"
+                      name="endDate"
+                      value={formData.endDate}
+                      onChange={handleChange}
+                      min={formData.startDate || new Date().toISOString().split('T')[0]}
+                      required
+                    />
+                  </div>
+
+                  <div className="col-md-6 mb-3">
+                    <Form.Label className="fw-bold">
+                      End Time <span className="text-danger">*</span>
+                    </Form.Label>
+                    <Form.Control
+                      type="time"
+                      name="endTime"
+                      value={formData.endTime}
+                      onChange={handleChange}
+                      required
+                    />
+                    <Form.Text className="text-muted">
+                      Format: HH:MM (24-hour)
+                    </Form.Text>
+                  </div>
+
+                  {/* Preview */}
+                  {formData.startDate && formData.endDate && formData.extraFreeDays && formData.offerDescription && (
+                    <div className="col-12 mt-2">
+                      <Alert variant="info">
+                        <i className="fas fa-info-circle me-2"></i>
+                        <strong>Offer Preview:</strong> {formData.offerDescription} - 
+                        +{formData.extraFreeDays} free day{formData.extraFreeDays > 1 ? 's' : ''}
+                        <br />
+                        <small>
+                          Valid from {new Date(formData.startDate).toLocaleDateString()} to{' '}
+                          {new Date(formData.endDate).toLocaleDateString()} ({formData.startTime} - {formData.endTime})
+                        </small>
+                      </Alert>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </Form>
         </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={closeOfferModal}>
+            <i className="fas fa-times me-2"></i>Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleSubmitOffer}
+            disabled={isSubmitting || !selectedVehicle}
+          >
+            {isSubmitting ? (
+              <>
+                <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
+                <span className="ms-2">Adding Offer...</span>
+              </>
+            ) : (
+              <>
+                <i className="fas fa-plus me-2"></i>
+                Add Offer
+              </>
+            )}
+          </Button>
+        </Modal.Footer>
       </Modal>
     </div>
   );
 };
 
 export default OfferSection;
-

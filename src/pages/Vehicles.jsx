@@ -52,6 +52,7 @@ const Vehicles = () => {
   const [showCustomCarTypeInput, setShowCustomCarTypeInput] = useState(false);
   const [showCustomFuelInput, setShowCustomFuelInput] = useState(false);
   const [showPremiumOnly, setShowPremiumOnly] = useState(false);
+  const [offerCars, setOfferCars] = useState(false);
   const [isExportingBookings, setIsExportingBookings] = useState(false);
 
   // Date filter states
@@ -99,6 +100,10 @@ const Vehicles = () => {
       filtered = filtered.filter(v => v.isPremium === true);
     }
 
+    if (offerCars) {
+      filtered = filtered.filter(v => v.hasOffer === true);
+    }
+
     // Apply search filter if there's search text
     if (searchText.trim() !== '') {
       filtered = filtered.filter((v) => {
@@ -139,7 +144,7 @@ const Vehicles = () => {
 
   useEffect(() => {
     filterVehicles();
-  }, [searchText, searchType, vehicles, showPremiumOnly]);
+  }, [searchText, searchType, vehicles, showPremiumOnly, offerCars]);
 
   const openAddModal = () => {
     setEditingVehicle(null);
@@ -601,6 +606,10 @@ const Vehicles = () => {
     setShowPremiumOnly(!showPremiumOnly);
   };
 
+  const toggleOfferFilter = () => {
+    setOfferCars(!offerCars);
+  };
+
   const totalPages = Math.ceil(filteredVehicles.length / itemsPerPage);
   const paginatedVehicles = filteredVehicles.slice(
     (currentPage - 1) * itemsPerPage,
@@ -729,6 +738,15 @@ const Vehicles = () => {
             </Button>
 
             <Button
+              variant={offerCars ? "warning" : "outline-warning"}
+              className="me-2 mb-2"
+              onClick={toggleOfferFilter}
+            >
+              <i className="fas fa-crown me-2"></i>
+              {offerCars ? "Offer" : "No Offer"}
+            </Button>
+
+            <Button
               variant="info"
               className="me-2 mb-2"
               onClick={handleRefresh}
@@ -774,6 +792,13 @@ const Vehicles = () => {
             </Alert>
           )}
 
+          {offerCars && (
+            <Alert variant="warning" className="mb-3">
+              <i className="fas fa-crown me-2"></i>
+              Showing only Offered vehicles ({filteredVehicles.length} found)
+            </Alert>
+          )}
+
           <div className="table-responsive">
             <Table bordered hover striped>
               <thead>
@@ -782,6 +807,7 @@ const Vehicles = () => {
                   <th>ID</th>
                   <th>Image</th>
                   <th>Name</th>
+                  <th>HasOffer</th>
                   <th>Model</th>
                   <th>Year</th>
                   <th>Price/Hr</th>
@@ -823,7 +849,15 @@ const Vehicles = () => {
                         ) : 'No Image'}
                       </td>
                       <td>{vehicle.carName}</td>
-                      <td>{vehicle.model}</td>
+                      <td>
+                        <button
+                          className={`btn btn-sm ${vehicle.hasOffer ? "btn-success" : "btn-danger"
+                            }`}
+                          disabled
+                        >
+                          {vehicle.hasOffer ? "Offer Added" : "No Offer"}
+                        </button>
+                      </td>                      <td>{vehicle.model}</td>
                       <td>{vehicle.year}</td>
                       <td>₹{vehicle.pricePerHour}</td>
                       <td>₹{vehicle.pricePerDay}</td>
