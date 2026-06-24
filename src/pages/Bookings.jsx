@@ -61,7 +61,7 @@ const Bookings = () => {
   const [cars, setCars] = useState([]);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isReplacingCar, setIsReplacingCar] = useState(false);
-  
+
   // Pagination state from backend
   const [pagination, setPagination] = useState({
     currentPage: 1,
@@ -71,34 +71,34 @@ const Bookings = () => {
     hasNextPage: false,
     hasPrevPage: false
   });
-  
+
   // Date Filters - Using string format for native date inputs
   const [rentalStartDateFilter, setRentalStartDateFilter] = useState("");
   const [rentalEndDateFilter, setRentalEndDateFilter] = useState("");
   const [createdDateFilter, setCreatedDateFilter] = useState("");
-  
+
   // Loading state
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Excel download loading state
   const [isDownloading, setIsDownloading] = useState(false);
-  
+
   const bookingsPerPage = 10;
 
   // Fetch bookings with pagination and filters
   const fetchBookings = async (page = 1, searchBy = null, searchValue = null) => {
     try {
       setIsLoading(true);
-      
+
       let url = `https://varahibackend.varahiselfdrivecars.com/api/staff/allbookingsforadmin?page=${page}&limit=${bookingsPerPage}`;
-      
+
       // Add search parameters if provided
       if (searchBy && searchValue) {
         url += `&searchBy=${searchBy}&searchValue=${searchValue}`;
       }
-      
+
       const response = await axios.get(url);
-      
+
       if (response.data?.bookings) {
         setBookings(response.data.bookings);
         setFilteredBookings(response.data.bookings);
@@ -180,7 +180,7 @@ const Bookings = () => {
     if (searchQuery.trim()) {
       let searchBy = filterField;
       let searchValue = searchQuery;
-      
+
       await fetchBookings(1, searchBy, searchValue);
     } else {
       await fetchBookings(1);
@@ -194,7 +194,7 @@ const Bookings = () => {
       try {
         // Build URL with date parameters
         let url = `https://varahibackend.varahiselfdrivecars.com/api/staff/allbookingsforadmin?page=1&limit=${bookingsPerPage}`;
-        
+
         if (rentalStartDateFilter) {
           url += `&rentalstartdate=${rentalStartDateFilter}`;
         }
@@ -204,9 +204,9 @@ const Bookings = () => {
         if (createdDateFilter) {
           url += `&createdat=${createdDateFilter}`;
         }
-        
+
         const response = await axios.get(url);
-        
+
         if (response.data?.bookings) {
           setBookings(response.data.bookings);
           setFilteredBookings(response.data.bookings);
@@ -274,18 +274,18 @@ const Bookings = () => {
   const handleGenerateOTP = async (bookingId) => {
     try {
       toast.info("Generating OTP...", { autoClose: false, toastId: 'otp-loading' });
-      
+
       const response = await axios.put(
         `https://varahibackend.varahiselfdrivecars.com/api/staff/update-otp/${bookingId}`
       );
-      
+
       toast.dismiss('otp-loading');
-      
+
       if (response.data && response.data.otp) {
         toast.success(`OTP generated successfully: ${response.data.otp}`, {
           autoClose: 5000
         });
-        
+
         await fetchBookings(currentPage);
       } else {
         toast.success("OTP generated successfully!");
@@ -328,7 +328,7 @@ const Bookings = () => {
       toast.info("Initializing payment gateway...", { autoClose: 1500 });
 
       const isScriptLoaded = await loadRazorpayScript('https://checkout.razorpay.com/v1/checkout.js');
-      
+
       if (!isScriptLoaded) {
         toast.error("Payment gateway failed to load. Please check your connection and try again.");
         setIsProcessingPayment(false);
@@ -371,7 +371,7 @@ const Bookings = () => {
           color: "#3399cc"
         },
         modal: {
-          ondismiss: function() {
+          ondismiss: function () {
             console.log('Checkout form closed by user');
             if (!isProcessingPayment) {
               toast.info("Payment was cancelled");
@@ -382,7 +382,7 @@ const Bookings = () => {
       };
 
       const razorpayInstance = new window.Razorpay(options);
-      
+
       razorpayInstance.on('payment.failed', function (response) {
         console.error('Payment failed:', response.error);
         const errorDescription = response.error?.description || response.error?.error?.description || 'Payment failed';
@@ -391,7 +391,7 @@ const Bookings = () => {
       });
 
       razorpayInstance.open();
-      
+
     } catch (error) {
       console.error("Error initializing Razorpay:", error);
       toast.error("Failed to initialize payment. Please try again.");
@@ -405,7 +405,7 @@ const Bookings = () => {
 
       const userId = selectedBooking.userId?._id;
       const bookingId = selectedBooking._id;
-      
+
       if (!userId) {
         toast.error("User ID not found in booking data");
         setIsProcessingPayment(false);
@@ -432,7 +432,7 @@ const Bookings = () => {
         toast.success(response.data.message);
         setShowExtendModal(false);
         await fetchBookings(currentPage);
-        
+
         setExtensionData({
           extendDeliveryDate: "",
           extendDeliveryTime: "",
@@ -458,7 +458,7 @@ const Bookings = () => {
 
       const userId = selectedBooking.userId?._id;
       const bookingId = selectedBooking._id;
-      
+
       if (!userId) {
         toast.error("User ID not found in booking data");
         return;
@@ -478,7 +478,7 @@ const Bookings = () => {
 
       if (replaceData.staffRefund) {
         payload.staffRefund = parseFloat(replaceData.staffRefund);
-        
+
         if (replaceData.amount && replaceData.transactionId) {
           payload.amount = parseFloat(replaceData.amount);
           payload.transactionId = replaceData.transactionId;
@@ -504,7 +504,7 @@ const Bookings = () => {
         toast.success(response.data.message);
         setShowReplaceModal(false);
         await fetchBookings(currentPage);
-        
+
         setReplaceData({
           newCarId: "",
           transactionId: "",
@@ -538,7 +538,7 @@ const Bookings = () => {
       toast.info("Initializing payment gateway...", { autoClose: 1500 });
 
       const isScriptLoaded = await loadRazorpayScript('https://checkout.razorpay.com/v1/checkout.js');
-      
+
       if (!isScriptLoaded) {
         toast.error("Payment gateway failed to load. Please check your connection and try again.");
         setIsProcessingPayment(false);
@@ -568,9 +568,9 @@ const Bookings = () => {
             ...prev,
             transactionId: response.razorpay_payment_id
           }));
-          
+
           await new Promise(resolve => setTimeout(resolve, 100));
-          
+
           await handleReplaceCar();
         },
         prefill: {
@@ -587,7 +587,7 @@ const Bookings = () => {
           color: "#3399cc"
         },
         modal: {
-          ondismiss: function() {
+          ondismiss: function () {
             console.log('Checkout form closed by user');
             toast.info("Payment was cancelled");
             setIsProcessingPayment(false);
@@ -596,7 +596,7 @@ const Bookings = () => {
       };
 
       const razorpayInstance = new window.Razorpay(options);
-      
+
       razorpayInstance.on('payment.failed', function (response) {
         console.error('Payment failed:', response.error);
         const errorDescription = response.error?.description || response.error?.error?.description || 'Payment failed';
@@ -605,7 +605,7 @@ const Bookings = () => {
       });
 
       razorpayInstance.open();
-      
+
     } catch (error) {
       console.error("Error initializing Razorpay for replacement:", error);
       toast.error("Failed to initialize payment. Please try again.");
@@ -672,7 +672,7 @@ const Bookings = () => {
   };
 
   const getReplacementBadge = (booking) => {
-    const hasReplacement = booking?.carReplacementHistory && 
+    const hasReplacement = booking?.carReplacementHistory &&
       booking.carReplacementHistory.length > 0;
 
     if (hasReplacement) {
@@ -686,7 +686,7 @@ const Bookings = () => {
   };
 
   const getReplacementStatus = (booking) => {
-    const hasReplacement = booking?.carReplacementHistory && 
+    const hasReplacement = booking?.carReplacementHistory &&
       booking.carReplacementHistory.length > 0;
 
     if (hasReplacement) {
@@ -767,7 +767,7 @@ const Bookings = () => {
       if (rentalStartDateFilter) url += `&rentalstartdate=${rentalStartDateFilter}`;
       if (rentalEndDateFilter) url += `&rentalenddate=${rentalEndDateFilter}`;
       if (createdDateFilter) url += `&createdat=${createdDateFilter}`;
-      
+
       axios.get(url).then(response => {
         if (response.data?.bookings) {
           setBookings(response.data.bookings);
@@ -798,34 +798,34 @@ const Bookings = () => {
         'Car Model': booking.car?.model || '-',
         'Vehicle Number': booking.car?.vehicleNumber || '-',
         'Car Replacement': booking.carReplacementHistory && booking.carReplacementHistory.length > 0 ? 'Yes' : 'No',
-        'Original Car': booking.carReplacementHistory && booking.carReplacementHistory.length > 0 
-          ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.oldCarId?.carName || '-') 
+        'Original Car': booking.carReplacementHistory && booking.carReplacementHistory.length > 0
+          ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.oldCarId?.carName || '-')
           : '-',
-        'Original Car Model': booking.carReplacementHistory && booking.carReplacementHistory.length > 0 
-          ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.oldCarId?.model || '-') 
+        'Original Car Model': booking.carReplacementHistory && booking.carReplacementHistory.length > 0
+          ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.oldCarId?.model || '-')
           : '-',
-        'Replacement Car': booking.carReplacementHistory && booking.carReplacementHistory.length > 0 
-          ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.newCarId?.carName || '-') 
+        'Replacement Car': booking.carReplacementHistory && booking.carReplacementHistory.length > 0
+          ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.newCarId?.carName || '-')
           : '-',
-        'Replacement Car Model': booking.carReplacementHistory && booking.carReplacementHistory.length > 0 
-          ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.newCarId?.model || '-') 
+        'Replacement Car Model': booking.carReplacementHistory && booking.carReplacementHistory.length > 0
+          ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.newCarId?.model || '-')
           : '-',
-        'Replaced At': booking.carReplacementHistory && booking.carReplacementHistory.length > 0 
-          ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.replacedAt 
-            ? new Date(booking.carReplacementHistory[booking.carReplacementHistory.length - 1].replacedAt).toLocaleString() 
+        'Replaced At': booking.carReplacementHistory && booking.carReplacementHistory.length > 0
+          ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.replacedAt
+            ? new Date(booking.carReplacementHistory[booking.carReplacementHistory.length - 1].replacedAt).toLocaleString()
             : '-')
           : '-',
-        'Payment Adjustment': booking.carReplacementHistory && booking.carReplacementHistory.length > 0 
-          ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.paymentAdjustment || 0) 
+        'Payment Adjustment': booking.carReplacementHistory && booking.carReplacementHistory.length > 0
+          ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.paymentAdjustment || 0)
           : 0,
-        'Staff Payment Status': booking.carReplacementHistory && booking.carReplacementHistory.length > 0 
-          ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.staffPaymentStatus || '-') 
+        'Staff Payment Status': booking.carReplacementHistory && booking.carReplacementHistory.length > 0
+          ? (booking.carReplacementHistory[booking.carReplacementHistory.length - 1]?.staffPaymentStatus || '-')
           : '-',
         'Extension Count': booking.extensions?.length || 0,
-        'Extension Details': booking.extensions && booking.extensions.length > 0 
-          ? booking.extensions.map(ext => 
-              `Date: ${ext.extendDeliveryDate || '-'}, Time: ${ext.extendDeliveryTime || '-'}, Hours: ${ext.hours || '-'}, Amount: ₹${ext.amount || 0}`
-            ).join('; ')
+        'Extension Details': booking.extensions && booking.extensions.length > 0
+          ? booking.extensions.map(ext =>
+            `Date: ${ext.extendDeliveryDate || '-'}, Time: ${ext.extendDeliveryTime || '-'}, Hours: ${ext.hours || '-'}, Amount: ₹${ext.amount || 0}`
+          ).join('; ')
           : 'No extensions',
         'Total Extension Amount': booking.extensions?.reduce((sum, ext) => sum + (ext.amount || 0), 0) || 0,
         'Rental Start Date': booking.rentalStartDate ? new Date(booking.rentalStartDate).toLocaleDateString() : '-',
@@ -879,14 +879,14 @@ const Bookings = () => {
 
       const dateStr = new Date().toISOString().split('T')[0];
       let filename = `bookings_${dateStr}`;
-      
+
       if (rentalStartDateFilter || rentalEndDateFilter || createdDateFilter) {
         filename += '_filtered';
         if (rentalStartDateFilter) filename += `_start_${rentalStartDateFilter}`;
         if (rentalEndDateFilter) filename += `_end_${rentalEndDateFilter}`;
         if (createdDateFilter) filename += `_created_${createdDateFilter}`;
       }
-      
+
       filename += '.xlsx';
 
       XLSX.writeFile(wb, filename);
@@ -930,13 +930,13 @@ const Bookings = () => {
     if (extensions.length === 0) {
       return <Badge bg="secondary">No Extensions</Badge>;
     }
-    
+
     return (
       <div>
         <Badge bg="info">{extensions.length} Extension{extensions.length > 1 ? 's' : ''}</Badge>
-        <Button 
-          variant="link" 
-          size="sm" 
+        <Button
+          variant="link"
+          size="sm"
           className="p-0 ms-2"
           onClick={() => handleViewExtensions(booking)}
         >
@@ -959,7 +959,7 @@ const Bookings = () => {
   return (
     <div className="container-fluid mt-4 px-3 px-md-4">
       <ToastContainer position="top-right" autoClose={2000} />
-      
+
       {/* Header Section */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
         <h2 className="mb-0">Bookings Management</h2>
@@ -974,8 +974,8 @@ const Bookings = () => {
           <Row className="g-3">
             <Col xs={12} md={3}>
               <Form.Label className="fw-semibold">Search Field</Form.Label>
-              <Form.Select 
-                value={filterField} 
+              <Form.Select
+                value={filterField}
                 onChange={(e) => setFilterField(e.target.value)}
                 className="w-100"
               >
@@ -992,7 +992,7 @@ const Bookings = () => {
                 <option value="extensions">Extensions</option> */}
               </Form.Select>
             </Col>
-            
+
             <Col xs={12} md={3}>
               <Form.Label className="fw-semibold">Search Value</Form.Label>
               <InputGroup>
@@ -1006,7 +1006,7 @@ const Bookings = () => {
                             : filterField === 'paymentstatus' ? 'Payment Status'
                               : filterField === 'replaced' ? 'Yes/No'
                                 : filterField === 'extensions' ? 'Extended/Not Extended'
-                                : 'value'}`}
+                                  : 'value'}`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -1016,7 +1016,7 @@ const Bookings = () => {
                 </Button>
               </InputGroup>
             </Col>
-            
+
             <Col xs={12} md={2}>
               <Form.Label className="fw-semibold">Rental Start Date</Form.Label>
               <Form.Control
@@ -1025,7 +1025,7 @@ const Bookings = () => {
                 onChange={(e) => setRentalStartDateFilter(e.target.value)}
               />
             </Col>
-            
+
             <Col xs={12} md={2}>
               <Form.Label className="fw-semibold">Rental End Date</Form.Label>
               <Form.Control
@@ -1034,7 +1034,7 @@ const Bookings = () => {
                 onChange={(e) => setRentalEndDateFilter(e.target.value)}
               />
             </Col>
-            
+
             <Col xs={12} md={2}>
               <Form.Label className="fw-semibold">Created Date</Form.Label>
               <Form.Control
@@ -1044,19 +1044,19 @@ const Bookings = () => {
               />
             </Col>
           </Row>
-          
+
           <Row className="mt-3">
             <Col xs={12} className="d-flex justify-content-between align-items-center flex-wrap gap-2">
-              <Button 
-                variant="outline-secondary" 
-                size="sm" 
+              <Button
+                variant="outline-secondary"
+                size="sm"
                 onClick={clearAllFilters}
               >
                 <i className="fas fa-times me-2"></i>Clear All Filters
               </Button>
-              
-              <Button 
-                variant="success" 
+
+              <Button
+                variant="success"
                 size="sm"
                 onClick={handleDownloadExcel}
                 disabled={isDownloading || filteredBookings.length === 0}
@@ -1146,9 +1146,9 @@ const Bookings = () => {
                       <td className="align-middle">
                         {booking.otp || 'N/A'}
                         {!booking.otp && (
-                          <Button 
-                            variant="outline-success" 
-                            size="sm" 
+                          <Button
+                            variant="outline-success"
+                            size="sm"
                             className="ms-1"
                             onClick={() => handleGenerateOTP(booking._id)}
                             title="Generate OTP"
@@ -1185,15 +1185,15 @@ const Bookings = () => {
               </Table>
             )}
           </div>
-          
+
           {/* Pagination Section */}
           {!isLoading && filteredBookings.length > 0 && renderPagination()}
-          
+
           {/* Pagination Info */}
           {!isLoading && filteredBookings.length > 0 && (
             <div className="text-center text-muted mt-3 pb-3">
               <small>
-                Showing {filteredBookings.length} of {pagination.totalBookings} bookings | 
+                Showing {filteredBookings.length} of {pagination.totalBookings} bookings |
                 Page {pagination.currentPage} of {pagination.totalPages}
               </small>
             </div>
@@ -1328,7 +1328,7 @@ const Bookings = () => {
               <div className="alert alert-info">
                 <small>
                   <i className="fas fa-info-circle me-2"></i>
-                  <strong>Note:</strong> 
+                  <strong>Note:</strong>
                   <ul className="mb-0 mt-1">
                     <li>Provide either hours OR date/time for extension</li>
                     <li>Razorpay payment gateway will open for payment</li>
@@ -1343,8 +1343,8 @@ const Bookings = () => {
           <Button variant="secondary" onClick={() => setShowExtendModal(false)} disabled={isProcessingPayment}>
             Cancel
           </Button>
-          <Button 
-            variant="success" 
+          <Button
+            variant="success"
             onClick={initRazorpayPayment}
             disabled={isProcessingPayment || !extensionData.amount}
           >
@@ -1400,8 +1400,8 @@ const Bookings = () => {
                   type="number"
                   placeholder="Enter staff refund amount"
                   value={replaceData.staffRefund}
-                  onChange={(e) => setReplaceData({ 
-                    ...replaceData, 
+                  onChange={(e) => setReplaceData({
+                    ...replaceData,
                     staffRefund: e.target.value,
                     requirePayment: e.target.value ? false : replaceData.requirePayment
                   })}
@@ -1415,7 +1415,7 @@ const Bookings = () => {
 
               {!replaceData.staffRefund && (
                 <>
-                  <Form.Check 
+                  <Form.Check
                     type="checkbox"
                     label="Require Customer Payment"
                     checked={replaceData.requirePayment}
@@ -1456,11 +1456,11 @@ const Bookings = () => {
                           </Form.Group>
                         </Col>
                       </Row>
-                      
+
                       <div className="alert alert-info">
                         <small>
                           <i className="fas fa-info-circle me-2"></i>
-                          <strong>Note:</strong> Click "Pay & Replace Car" to open Razorpay payment gateway. 
+                          <strong>Note:</strong> Click "Pay & Replace Car" to open Razorpay payment gateway.
                           Transaction ID will be automatically captured.
                         </small>
                       </div>
@@ -1472,7 +1472,7 @@ const Bookings = () => {
               <div className="alert alert-warning">
                 <small>
                   <i className="fas fa-exclamation-triangle me-2"></i>
-                  <strong>Important:</strong> 
+                  <strong>Important:</strong>
                   <ul className="mb-0 mt-1">
                     <li>If staff refund is entered, no Razorpay payment is required</li>
                     <li>If no staff refund and payment is required, Razorpay will open</li>
@@ -1487,10 +1487,10 @@ const Bookings = () => {
           <Button variant="secondary" onClick={() => setShowReplaceModal(false)} disabled={isReplacingCar || isProcessingPayment}>
             Cancel
           </Button>
-          
+
           {replaceData.staffRefund ? (
-            <Button 
-              variant="warning" 
+            <Button
+              variant="warning"
               onClick={handleReplaceCar}
               disabled={isReplacingCar || !replaceData.newCarId}
             >
@@ -1508,8 +1508,8 @@ const Bookings = () => {
             </Button>
           ) : (
             !replaceData.requirePayment ? (
-              <Button 
-                variant="warning" 
+              <Button
+                variant="warning"
                 onClick={handleReplaceCar}
                 disabled={isReplacingCar || !replaceData.newCarId}
               >
@@ -1526,8 +1526,8 @@ const Bookings = () => {
                 )}
               </Button>
             ) : (
-              <Button 
-                variant="success" 
+              <Button
+                variant="success"
                 onClick={initReplaceCarPayment}
                 disabled={isProcessingPayment || !replaceData.newCarId || !replaceData.amount}
               >
@@ -1549,448 +1549,603 @@ const Bookings = () => {
       </Modal>
 
       {/* View Extensions Modal */}
-      <Modal show={showExtensionsModal} onHide={() => setShowExtensionsModal(false)} size="lg">
+      <Modal
+        show={showExtensionsModal}
+        onHide={() => setShowExtensionsModal(false)}
+        size="xl"
+        centered
+      >
         <Modal.Header closeButton>
-          <Modal.Title>Booking Extensions</Modal.Title>
+          <Modal.Title>
+            <i className="fas fa-history me-2"></i>
+            Booking Extensions
+          </Modal.Title>
         </Modal.Header>
+
         <Modal.Body>
           {selectedBooking && (
             <>
-              <div className="mb-3">
-                <h6>Booking Information</h6>
-                <p><strong>Booking ID:</strong> {selectedBooking._id}</p>
-                <p><strong>User:</strong> {selectedBooking.userId?.name} ({selectedBooking.userId?.email})</p>
-                <p><strong>Current Car:</strong> {selectedBooking.car?.carName} ({selectedBooking.car?.model})</p>
-                <p><strong>Original Rental End:</strong> {new Date(selectedBooking.rentalEndDate).toLocaleDateString()} {selectedBooking.to}</p>
+              {/* Booking Info */}
+              <div className="card border-0 bg-light mb-4">
+                <div className="card-body">
+                  <h5 className="mb-3">Booking Information</h5>
+
+                  <div className="row">
+                    <div className="col-md-6">
+                      <p className="mb-2">
+                        <strong>Booking ID:</strong> {selectedBooking._id}
+                      </p>
+                      <p className="mb-2">
+                        <strong>User:</strong>{" "}
+                        {selectedBooking.userId?.name}
+                      </p>
+                      <p className="mb-2">
+                        <strong>Email:</strong>{" "}
+                        {selectedBooking.userId?.email}
+                      </p>
+                    </div>
+
+                    <div className="col-md-6">
+                      <p className="mb-2">
+                        <strong>Car:</strong>{" "}
+                        {selectedBooking.car?.carName} (
+                        {selectedBooking.car?.model})
+                      </p>
+
+                      <p className="mb-2">
+                        <strong>Current Rental End:</strong>{" "}
+                        {new Date(
+                          selectedBooking.rentalEndDate
+                        ).toLocaleDateString()}{" "}
+                        {selectedBooking.to}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
-              
-              <hr />
-              
-              <h6>Extension History</h6>
-              {selectedBooking.extensions && selectedBooking.extensions.length > 0 ? (
-                <Table striped bordered hover size="sm">
-                  <thead>
-                    <tr>
-                      <th>S.No</th>
-                      <th>Extended Date</th>
-                      <th>Extended Time</th>
-                      <th>Hours</th>
-                      <th>Amount (₹)</th>
-                      <th>Transaction ID</th>
-                      <th>Extended At</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedBooking.extensions.map((ext, index) => (
-                      <tr key={ext._id || index}>
-                        <td>{index + 1}</td>
-                        <td>{ext.extendDeliveryDate || '-'}</td>
-                        <td>{ext.extendDeliveryTime || '-'}</td>
-                        <td>{ext.hours || '-'}</td>
-                        <td>₹{ext.amount || 0}</td>
-                        <td>
-                          {ext.transactionId ? (
-                            <Badge bg="info" className="text-wrap">{ext.transactionId}</Badge>
-                          ) : '-'}
-                        </td>
-                        <td>{ext.extendedAt ? new Date(ext.extendedAt).toLocaleString() : '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="table-info">
-                      <td colSpan="4" className="text-end"><strong>Total:</strong></td>
-                      <td><strong>₹{selectedBooking.extensions.reduce((sum, ext) => sum + (ext.amount || 0), 0)}</strong></td>
-                      <td colSpan="2"></td>
-                    </tr>
-                  </tfoot>
-                </Table>
+
+              <h5 className="mb-3">Extension History</h5>
+
+              {selectedBooking.extensions &&
+                selectedBooking.extensions.length > 0 ? (
+                <>
+                  <div className="table-responsive">
+                    <Table bordered hover striped>
+                      <thead className="table-dark">
+                        <tr>
+                          <th>S.No</th>
+                          <th>Type</th>
+                          {/* <th>Original End</th> */}
+                          <th>Extended To</th>
+                          <th>Hours</th>
+                          <th>Amount</th>
+                          <th>Owner Commission</th>
+                          <th>Transaction ID</th>
+                          <th>Extended At</th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {selectedBooking.extensions.map(
+                          (ext, index) => (
+                            <tr key={ext._id || index}>
+                              <td>{index + 1}</td>
+
+                              <td>
+                                <Badge
+                                  bg={
+                                    ext.extensionType ===
+                                      "admin_car"
+                                      ? "danger"
+                                      : "success"
+                                  }
+                                >
+                                  Admin Car
+                                </Badge>
+                              </td>
+
+                              {/* <td>
+                                <div>
+                                  <strong>
+                                    {ext.originalEndDate ||
+                                      "-"}
+                                  </strong>
+                                  <br />
+                                  <small className="text-muted">
+                                    {ext.originalEndTime ||
+                                      "-"}
+                                  </small>
+                                </div>
+                              </td> */}
+
+                              <td>
+                                <div>
+                                  <strong>
+                                    {ext.extendDeliveryDate ||
+                                      "-"}
+                                  </strong>
+                                  <br />
+                                  <small className="text-muted">
+                                    {ext.extendDeliveryTime ||
+                                      "-"}
+                                  </small>
+                                </div>
+                              </td>
+
+                              <td>{ext.hours || 0}</td>
+
+                              <td>
+                                <strong className="text-success">
+                                  ₹{ext.amount || 0}
+                                </strong>
+                              </td>
+
+                              <td>
+                                {ext.ownerCommission ? (
+                                  <Badge bg="warning" text="dark">
+                                    ₹{ext.ownerCommission}
+                                  </Badge>
+                                ) : (
+                                  "-"
+                                )}
+                              </td>
+
+                              <td>
+                                {ext.transactionId ? (
+                                  <Badge
+                                    bg="info"
+                                    className="text-wrap"
+                                  >
+                                    {ext.transactionId}
+                                  </Badge>
+                                ) : (
+                                  "-"
+                                )}
+                              </td>
+
+                              <td>
+                                {ext.extendedAt
+                                  ? new Date(
+                                    ext.extendedAt
+                                  ).toLocaleString()
+                                  : "-"}
+                              </td>
+                            </tr>
+                          )
+                        )}
+                      </tbody>
+
+                      <tfoot>
+                        <tr className="table-info">
+                          <td colSpan="5" className="text-end">
+                            <strong>Total Amount:</strong>
+                          </td>
+
+                          <td>
+                            <strong>
+                              ₹
+                              {selectedBooking.extensions.reduce(
+                                (sum, ext) =>
+                                  sum +
+                                  Number(ext.amount || 0),
+                                0
+                              )}
+                            </strong>
+                          </td>
+
+                          <td
+                            colSpan="3"
+                            className="text-center"
+                          >
+                            <strong>
+                              Total Extensions:{" "}
+                              {
+                                selectedBooking.extensions
+                                  .length
+                              }
+                            </strong>
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </Table>
+                  </div>
+
+                  <div className="alert alert-primary mt-3">
+                    <strong>Total Extensions:</strong>{" "}
+                    {selectedBooking.extensions.length}
+                    <span className="mx-2">|</span>
+                    <strong>Total Revenue:</strong> ₹
+                    {selectedBooking.extensions.reduce(
+                      (sum, ext) =>
+                        sum + Number(ext.amount || 0),
+                      0
+                    )}
+                  </div>
+                </>
               ) : (
-                <p className="text-muted">No extensions found for this booking.</p>
-              )}
-              
-              {selectedBooking.extensions && selectedBooking.extensions.length > 0 && (
-                <div className="alert alert-info mt-3">
-                  <i className="fas fa-info-circle me-2"></i>
-                  <strong>Total Extensions:</strong> {selectedBooking.extensions.length} | 
-                  <strong> Total Amount:</strong> ₹{selectedBooking.extensions.reduce((sum, ext) => sum + (ext.amount || 0), 0)}
+                <div className="alert alert-secondary">
+                  No extensions found for this booking.
                 </div>
               )}
             </>
           )}
         </Modal.Body>
+
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowExtensionsModal(false)}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowExtensionsModal(false)}
+          >
             Close
           </Button>
         </Modal.Footer>
       </Modal>
 
       {/* Details Modal */}
-<Modal show={showDetailsModal} onHide={() => setShowDetailsModal(false)} size="xl" scrollable>
-  <Modal.Header closeButton>
-    <Modal.Title>Booking Details</Modal.Title>
-  </Modal.Header>
-  <Modal.Body>
-    {bookingDetails && (
-      <>
-        {/* User Information Section */}
-        <div className="row mb-4">
-          <div className="col-md-6">
-            <h5 className="text-primary border-bottom pb-2">User Information</h5>
-            <div className="mb-3">
-              <p><strong>Name:</strong> {bookingDetails.userId?.name || 'N/A'}</p>
-              <p><strong>Email:</strong> {bookingDetails.userId?.email || 'N/A'}</p>
-              <p><strong>Mobile:</strong> {bookingDetails.userId?.mobile || 'N/A'}</p>
-            </div>
-
-            <h5 className="mt-4 text-primary border-bottom pb-2">Document Status</h5>
-            <div className="mb-3">
-              <p>
-                <strong>Aadhar Card:</strong>
-                <Badge bg={
-                  bookingDetails.userId?.documents?.aadharCard?.status === 'verified' || 
-                  bookingDetails.userId?.documents?.aadharCard?.status === 'approved'
-                    ? 'success'
-                    : bookingDetails.userId?.documents?.aadharCard?.status === 'rejected'
-                      ? 'danger'
-                      : 'warning'
-                } className="ms-2">
-                  {bookingDetails.userId?.documents?.aadharCard?.status || 'Not uploaded'}
-                </Badge>
-              </p>
-              {bookingDetails.userId?.documents?.aadharCard?.message && (
-                <p className="text-muted small ms-3">
-                  <i className="fas fa-info-circle me-1"></i>
-                  {bookingDetails.userId.documents.aadharCard.message}
-                </p>
-              )}
-              <p>
-                <strong>Driving License:</strong>
-                <Badge bg={
-                  bookingDetails.userId?.documents?.drivingLicense?.status === 'verified' || 
-                  bookingDetails.userId?.documents?.drivingLicense?.status === 'approved'
-                    ? 'success'
-                    : bookingDetails.userId?.documents?.drivingLicense?.status === 'rejected'
-                      ? 'danger'
-                      : 'warning'
-                } className="ms-2">
-                  {bookingDetails.userId?.documents?.drivingLicense?.status || 'Not uploaded'}
-                </Badge>
-              </p>
-              {bookingDetails.userId?.documents?.drivingLicense?.message && (
-                <p className="text-muted small ms-3">
-                  <i className="fas fa-info-circle me-1"></i>
-                  {bookingDetails.userId.documents.drivingLicense.message}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="col-md-6">
-            <h5 className="text-primary border-bottom pb-2">Booking Information</h5>
-            <div className="mb-3">
-              <p><strong>Booking ID:</strong> <code>{bookingDetails._id}</code></p>
-              <p><strong>Status:</strong>
-                <Badge bg={getStatusBadge(bookingDetails.status)} className="ms-2">
-                  {bookingDetails.status}
-                </Badge>
-              </p>
-              <p><strong>Payment Status:</strong>
-                <Badge bg={getPaymentBadge(bookingDetails.paymentStatus)} className="ms-2">
-                  {bookingDetails.paymentStatus}
-                </Badge>
-              </p>
-              <p><strong>Transaction ID:</strong> {bookingDetails.transactionId || 'N/A'}</p>
-              <p><strong>Advance Paid:</strong> {bookingDetails.advancePaidStatus ? 'Yes' : 'No'}</p>
-              <p><strong>Customer Took Car:</strong> {bookingDetails.customerTookCar ? 'Yes' : 'No'}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Rental Details Section */}
-        <div className="row mb-4">
-          <div className="col-md-6">
-            <h5 className="text-primary border-bottom pb-2">Rental Details</h5>
-            <div className="mb-3">
-              <p><strong>Rental Start Date:</strong> {bookingDetails.rentalStartDate ? new Date(bookingDetails.rentalStartDate).toLocaleDateString() : 'N/A'}</p>
-              <p><strong>Rental End Date:</strong> {bookingDetails.rentalEndDate ? new Date(bookingDetails.rentalEndDate).toLocaleDateString() : 'N/A'}</p>
-              <p><strong>Delivery Date:</strong> {bookingDetails.deliveryDate ? new Date(bookingDetails.deliveryDate).toLocaleDateString() : 'N/A'}</p>
-              <p><strong>Delivery Time:</strong> {bookingDetails.deliveryTime || 'N/A'}</p>
-              <p><strong>Timings:</strong> {bookingDetails.from} - {bookingDetails.to}</p>
-              <p><strong>Total Price:</strong> ₹{bookingDetails.totalPrice}</p>
-              <p><strong>Pickup Location:</strong> {bookingDetails.pickupLocation || 'N/A'}</p>
-              <p><strong>Deposit Amount:</strong> ₹{bookingDetails.deposit || 0}</p>
-              <p><strong>OTP:</strong> <code>{bookingDetails.otp || 'N/A'}</code></p>
-              <p><strong>Return OTP:</strong> <code>{bookingDetails.returnOTP || 'Not generated'}</code></p>
-            </div>
-          </div>
-
-          <div className="col-md-6">
-            <h5 className="text-primary border-bottom pb-2">Current Car Information</h5>
-            <div className="mb-3">
-              <p><strong>Name:</strong> {bookingDetails.car?.carName}</p>
-              <p><strong>Model:</strong> {bookingDetails.car?.model}</p>
-              <p><strong>Year:</strong> {bookingDetails.car?.year}</p>
-              <p><strong>Vehicle Number:</strong> {bookingDetails.car?.vehicleNumber}</p>
-              <p><strong>Type:</strong> {bookingDetails.car?.type}</p>
-              <p><strong>Car Type:</strong> {bookingDetails.car?.carType}</p>
-              <p><strong>Fuel:</strong> {bookingDetails.car?.fuel}</p>
-              <p><strong>Seats:</strong> {bookingDetails.car?.seats}</p>
-              <p><strong>Location:</strong> {bookingDetails.car?.location}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Extensions Section */}
-        {bookingDetails.extensions && bookingDetails.extensions.length > 0 && (
-          <div className="row mb-4">
-            <div className="col-12">
-              <h5 className="text-primary border-bottom pb-2">Extension History</h5>
-              <div className="table-responsive">
-                <Table striped bordered hover size="sm">
-                  <thead>
-                    <tr className="table-info">
-                      <th>S.No</th>
-                      <th>Extended Date</th>
-                      <th>Extended Time</th>
-                      <th>Hours</th>
-                      <th>Amount (₹)</th>
-                      <th>Transaction ID</th>
-                      <th>Extended At</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bookingDetails.extensions.map((ext, index) => (
-                      <tr key={ext._id || index}>
-                        <td>{index + 1}</td>
-                        <td>{ext.extendDeliveryDate || '-'}</td>
-                        <td>{ext.extendDeliveryTime || '-'}</td>
-                        <td>{ext.hours || '-'}</td>
-                        <td>₹{ext.amount || 0}</td>
-                        <td>
-                          {ext.transactionId ? (
-                            <code className="small">{ext.transactionId}</code>
-                          ) : '-'}
-                        </td>
-                        <td>{ext.extendedAt ? new Date(ext.extendedAt).toLocaleString() : '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="table-active">
-                      <td colSpan="4" className="text-end"><strong>Total:</strong></td>
-                      <td><strong>₹{bookingDetails.extensions.reduce((sum, ext) => sum + (ext.amount || 0), 0)}</strong></td>
-                      <td colSpan="2"></td>
-                    </tr>
-                  </tfoot>
-                </Table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Car Replacement History Section */}
-        {bookingDetails.carReplacementHistory && bookingDetails.carReplacementHistory.length > 0 && (
-          <div className="row mb-4">
-            <div className="col-12">
-              <h5 className="text-warning border-bottom pb-2">Car Replacement History</h5>
-              {bookingDetails.carReplacementHistory.map((replacement, idx) => (
-                <div key={replacement._id || idx} className="card mb-3 border-warning">
-                  <div className="card-header bg-warning bg-opacity-10">
-                    <strong>Replacement #{idx + 1}</strong>
-                    <span className="ms-3">
-                      <Badge bg="warning">
-                        {new Date(replacement.replacedAt).toLocaleString()}
-                      </Badge>
-                    </span>
+      <Modal show={showDetailsModal} onHide={() => setShowDetailsModal(false)} size="xl" scrollable>
+        <Modal.Header closeButton>
+          <Modal.Title>Booking Details</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {bookingDetails && (
+            <>
+              {/* User Information Section */}
+              <div className="row mb-4">
+                <div className="col-md-6">
+                  <h5 className="text-primary border-bottom pb-2">User Information</h5>
+                  <div className="mb-3">
+                    <p><strong>Name:</strong> {bookingDetails.userId?.name || 'N/A'}</p>
+                    <p><strong>Email:</strong> {bookingDetails.userId?.email || 'N/A'}</p>
+                    <p><strong>Mobile:</strong> {bookingDetails.userId?.mobile || 'N/A'}</p>
                   </div>
-                  <div className="card-body">
-                    <div className="row">
-                      <div className="col-md-6">
-                        <h6 className="text-danger">Old Car</h6>
-                        <p><strong>Name:</strong> {replacement.oldCarId?.carName || 'N/A'}</p>
-                        {/* <p><strong>Model:</strong> {replacement.oldCarId?.model || 'N/A'}</p>
+
+                  <h5 className="mt-4 text-primary border-bottom pb-2">Document Status</h5>
+                  <div className="mb-3">
+                    <p>
+                      <strong>Aadhar Card:</strong>
+                      <Badge bg={
+                        bookingDetails.userId?.documents?.aadharCard?.status === 'verified' ||
+                          bookingDetails.userId?.documents?.aadharCard?.status === 'approved'
+                          ? 'success'
+                          : bookingDetails.userId?.documents?.aadharCard?.status === 'rejected'
+                            ? 'danger'
+                            : 'warning'
+                      } className="ms-2">
+                        {bookingDetails.userId?.documents?.aadharCard?.status || 'Not uploaded'}
+                      </Badge>
+                    </p>
+                    {bookingDetails.userId?.documents?.aadharCard?.message && (
+                      <p className="text-muted small ms-3">
+                        <i className="fas fa-info-circle me-1"></i>
+                        {bookingDetails.userId.documents.aadharCard.message}
+                      </p>
+                    )}
+                    <p>
+                      <strong>Driving License:</strong>
+                      <Badge bg={
+                        bookingDetails.userId?.documents?.drivingLicense?.status === 'verified' ||
+                          bookingDetails.userId?.documents?.drivingLicense?.status === 'approved'
+                          ? 'success'
+                          : bookingDetails.userId?.documents?.drivingLicense?.status === 'rejected'
+                            ? 'danger'
+                            : 'warning'
+                      } className="ms-2">
+                        {bookingDetails.userId?.documents?.drivingLicense?.status || 'Not uploaded'}
+                      </Badge>
+                    </p>
+                    {bookingDetails.userId?.documents?.drivingLicense?.message && (
+                      <p className="text-muted small ms-3">
+                        <i className="fas fa-info-circle me-1"></i>
+                        {bookingDetails.userId.documents.drivingLicense.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="col-md-6">
+                  <h5 className="text-primary border-bottom pb-2">Booking Information</h5>
+                  <div className="mb-3">
+                    <p><strong>Booking ID:</strong> <code>{bookingDetails._id}</code></p>
+                    <p><strong>Status:</strong>
+                      <Badge bg={getStatusBadge(bookingDetails.status)} className="ms-2">
+                        {bookingDetails.status}
+                      </Badge>
+                    </p>
+                    <p><strong>Payment Status:</strong>
+                      <Badge bg={getPaymentBadge(bookingDetails.paymentStatus)} className="ms-2">
+                        {bookingDetails.paymentStatus}
+                      </Badge>
+                    </p>
+                    <p><strong>Transaction ID:</strong> {bookingDetails.transactionId || 'N/A'}</p>
+                    <p><strong>Advance Paid:</strong> {bookingDetails.advancePaidStatus ? 'Yes' : 'No'}</p>
+                    <p><strong>Customer Took Car:</strong> {bookingDetails.customerTookCar ? 'Yes' : 'No'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Rental Details Section */}
+              <div className="row mb-4">
+                <div className="col-md-6">
+                  <h5 className="text-primary border-bottom pb-2">Rental Details</h5>
+                  <div className="mb-3">
+                    <p><strong>Rental Start Date:</strong> {bookingDetails.rentalStartDate ? new Date(bookingDetails.rentalStartDate).toLocaleDateString() : 'N/A'}</p>
+                    <p><strong>Rental End Date:</strong> {bookingDetails.rentalEndDate ? new Date(bookingDetails.rentalEndDate).toLocaleDateString() : 'N/A'}</p>
+                    <p><strong>Delivery Date:</strong> {bookingDetails.deliveryDate ? new Date(bookingDetails.deliveryDate).toLocaleDateString() : 'N/A'}</p>
+                    <p><strong>Delivery Time:</strong> {bookingDetails.deliveryTime || 'N/A'}</p>
+                    <p><strong>Timings:</strong> {bookingDetails.from} - {bookingDetails.to}</p>
+                    <p><strong>Total Price:</strong> ₹{bookingDetails.totalPrice}</p>
+                    <p><strong>Pickup Location:</strong> {bookingDetails.pickupLocation || 'N/A'}</p>
+                    <p><strong>Deposit Amount:</strong> ₹{bookingDetails.deposit || 0}</p>
+                    <p><strong>OTP:</strong> <code>{bookingDetails.otp || 'N/A'}</code></p>
+                    <p><strong>Return OTP:</strong> <code>{bookingDetails.returnOTP || 'Not generated'}</code></p>
+                  </div>
+                </div>
+
+                <div className="col-md-6">
+                  <h5 className="text-primary border-bottom pb-2">Current Car Information</h5>
+                  <div className="mb-3">
+                    <p><strong>Name:</strong> {bookingDetails.car?.carName}</p>
+                    <p><strong>Model:</strong> {bookingDetails.car?.model}</p>
+                    <p><strong>Year:</strong> {bookingDetails.car?.year}</p>
+                    <p><strong>Vehicle Number:</strong> {bookingDetails.car?.vehicleNumber}</p>
+                    <p><strong>Type:</strong> {bookingDetails.car?.type}</p>
+                    <p><strong>Car Type:</strong> {bookingDetails.car?.carType}</p>
+                    <p><strong>Fuel:</strong> {bookingDetails.car?.fuel}</p>
+                    <p><strong>Seats:</strong> {bookingDetails.car?.seats}</p>
+                    <p><strong>Location:</strong> {bookingDetails.car?.location}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Extensions Section */}
+              {bookingDetails.extensions && bookingDetails.extensions.length > 0 && (
+                <div className="row mb-4">
+                  <div className="col-12">
+                    <h5 className="text-primary border-bottom pb-2">Extension History</h5>
+                    <div className="table-responsive">
+                      <Table striped bordered hover size="sm">
+                        <thead>
+                          <tr className="table-info">
+                            <th>S.No</th>
+                            <th>Extended Date</th>
+                            <th>Extended Time</th>
+                            <th>Hours</th>
+                            <th>Amount (₹)</th>
+                            <th>Transaction ID</th>
+                            <th>Extended At</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {bookingDetails.extensions.map((ext, index) => (
+                            <tr key={ext._id || index}>
+                              <td>{index + 1}</td>
+                              <td>{ext.extendDeliveryDate || '-'}</td>
+                              <td>{ext.extendDeliveryTime || '-'}</td>
+                              <td>{ext.hours || '-'}</td>
+                              <td>₹{ext.amount || 0}</td>
+                              <td>
+                                {ext.transactionId ? (
+                                  <code className="small">{ext.transactionId}</code>
+                                ) : '-'}
+                              </td>
+                              <td>{ext.extendedAt ? new Date(ext.extendedAt).toLocaleString() : '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="table-active">
+                            <td colSpan="4" className="text-end"><strong>Total:</strong></td>
+                            <td><strong>₹{bookingDetails.extensions.reduce((sum, ext) => sum + (ext.amount || 0), 0)}</strong></td>
+                            <td colSpan="2"></td>
+                          </tr>
+                        </tfoot>
+                      </Table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Car Replacement History Section */}
+              {bookingDetails.carReplacementHistory && bookingDetails.carReplacementHistory.length > 0 && (
+                <div className="row mb-4">
+                  <div className="col-12">
+                    <h5 className="text-warning border-bottom pb-2">Car Replacement History</h5>
+                    {bookingDetails.carReplacementHistory.map((replacement, idx) => (
+                      <div key={replacement._id || idx} className="card mb-3 border-warning">
+                        <div className="card-header bg-warning bg-opacity-10">
+                          <strong>Replacement #{idx + 1}</strong>
+                          <span className="ms-3">
+                            <Badge bg="warning">
+                              {new Date(replacement.replacedAt).toLocaleString()}
+                            </Badge>
+                          </span>
+                        </div>
+                        <div className="card-body">
+                          <div className="row">
+                            <div className="col-md-6">
+                              <h6 className="text-danger">Old Car</h6>
+                              <p><strong>Name:</strong> {replacement.oldCarId?.carName || 'N/A'}</p>
+                              {/* <p><strong>Model:</strong> {replacement.oldCarId?.model || 'N/A'}</p>
                         <p><strong>Vehicle Number:</strong> {replacement.oldCarId?.vehicleNumber || 'N/A'}</p>
                         <p><strong>Price Per Day:</strong> ₹{replacement.oldCarId?.pricePerDay || 'N/A'}</p> */}
-                      </div>
-                      <div className="col-md-6">
-                        <h6 className="text-success">New Car</h6>
-                        <p><strong>Name:</strong> {replacement.newCarId?.carName || 'N/A'}</p>
-                        {/* <p><strong>Model:</strong> {replacement.newCarId?.model || 'N/A'}</p>
+                            </div>
+                            <div className="col-md-6">
+                              <h6 className="text-success">New Car</h6>
+                              <p><strong>Name:</strong> {replacement.newCarId?.carName || 'N/A'}</p>
+                              {/* <p><strong>Model:</strong> {replacement.newCarId?.model || 'N/A'}</p>
                         <p><strong>Vehicle Number:</strong> {replacement.newCarId?.vehicleNumber || 'N/A'}</p>
                         <p><strong>Price Per Day:</strong> ₹{replacement.newCarId?.pricePerDay || 'N/A'}</p> */}
+                            </div>
+                          </div>
+                          <div className="row mt-2">
+                            <div className="col-12">
+                              <p><strong>Payment Adjustment:</strong> ₹{replacement.paymentAdjustment || 0}</p>
+                              <p><strong>Staff Payment Status:</strong>
+                                <Badge bg={replacement.staffPaymentStatus === 'completed' ? 'success' : 'warning'} className="ms-2">
+                                  {replacement.staffPaymentStatus || 'N/A'}
+                                </Badge>
+                              </p>
+                              {replacement.transactionId && (
+                                <p><strong>Transaction ID:</strong> <code>{replacement.transactionId}</code></p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="row mt-2">
-                      <div className="col-12">
-                        <p><strong>Payment Adjustment:</strong> ₹{replacement.paymentAdjustment || 0}</p>
-                        <p><strong>Staff Payment Status:</strong> 
-                          <Badge bg={replacement.staffPaymentStatus === 'completed' ? 'success' : 'warning'} className="ms-2">
-                            {replacement.staffPaymentStatus || 'N/A'}
-                          </Badge>
-                        </p>
-                        {replacement.transactionId && (
-                          <p><strong>Transaction ID:</strong> <code>{replacement.transactionId}</code></p>
-                        )}
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+              )}
 
-        {/* Images Section */}
-        <div className="row">
-          <div className="col-12">
-            <h5 className="text-primary border-bottom pb-2">Document Images</h5>
-          </div>
-          
-          {/* Aadhar Card */}
-          {bookingDetails.userId?.documents?.aadharCard?.url && (
-            <div className="col-md-6 mb-3">
-              <div className="card h-100">
-                <div className="card-header">
-                  <strong>Aadhar Card</strong>
-                  <Badge bg={
-                    bookingDetails.userId.documents.aadharCard.status === 'verified' ? 'success' : 'danger'
-                  } className="ms-2">
-                    {bookingDetails.userId.documents.aadharCard.status}
-                  </Badge>
-                </div>
-                <div className="card-body text-center">
-                  <img
-                    src={bookingDetails.userId.documents.aadharCard.url}
-                    alt="Aadhar Card"
-                    className="img-fluid img-thumbnail"
-                    style={{ maxHeight: '250px', cursor: 'pointer' }}
-                    onClick={() => window.open(bookingDetails.userId.documents.aadharCard.url, '_blank')}
-                  />
-                  <p className="text-muted small mt-2">
-                    Uploaded: {new Date(bookingDetails.userId.documents.aadharCard.uploadedAt).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Driving License */}
-          {bookingDetails.userId?.documents?.drivingLicense?.url && (
-            <div className="col-md-6 mb-3">
-              <div className="card h-100">
-                <div className="card-header">
-                  <strong>Driving License</strong>
-                  <Badge bg={
-                    bookingDetails.userId.documents.drivingLicense.status === 'verified' ? 'success' : 
-                    bookingDetails.userId.documents.drivingLicense.status === 'approved' ? 'success' : 'warning'
-                  } className="ms-2">
-                    {bookingDetails.userId.documents.drivingLicense.status}
-                  </Badge>
-                </div>
-                <div className="card-body text-center">
-                  <img
-                    src={bookingDetails.userId.documents.drivingLicense.url}
-                    alt="Driving License"
-                    className="img-fluid img-thumbnail"
-                    style={{ maxHeight: '250px', cursor: 'pointer' }}
-                    onClick={() => window.open(bookingDetails.userId.documents.drivingLicense.url, '_blank')}
-                  />
-                  <p className="text-muted small mt-2">
-                    Uploaded: {new Date(bookingDetails.userId.documents.drivingLicense.uploadedAt).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Deposit Proof Images */}
-        {bookingDetails.depositeProof && bookingDetails.depositeProof.length > 0 && (
-          <div className="row mt-3">
-            <div className="col-12">
-              <h5 className="text-primary border-bottom pb-2">Deposit Proof Images</h5>
-            </div>
-            {bookingDetails.depositeProof.map((proof, idx) => (
-              <div className="col-md-6 mb-3" key={proof._id || idx}>
-                <div className="card">
-                  <div className="card-header">
-                    <strong>{proof.label === 'depositeFront' ? 'Deposit Front' : 'Deposit Back'}</strong>
-                  </div>
-                  <div className="card-body text-center">
-                    <img
-                      src={proof.url}
-                      alt={proof.label}
-                      className="img-fluid img-thumbnail"
-                      style={{ maxHeight: '200px', cursor: 'pointer' }}
-                      onClick={() => window.open(proof.url, '_blank')}
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Car Pickup Images */}
-        {bookingDetails.carImagesBeforePickup && bookingDetails.carImagesBeforePickup.length > 0 && (
-          <div className="row mt-3">
-            <div className="col-12">
-              <h5 className="text-primary border-bottom pb-2">Car Pickup Images ({bookingDetails.carImagesBeforePickup.length})</h5>
-            </div>
-            <div className="col-12">
+              {/* Images Section */}
               <div className="row">
-                {bookingDetails.carImagesBeforePickup.map((image, idx) => (
-                  <div className="col-md-3 col-6 mb-3" key={image._id || idx}>
-                    <img
-                      src={image.url}
-                      alt={`Car Pickup ${idx + 1}`}
-                      className="img-fluid img-thumbnail"
-                      style={{ height: '150px', width: '100%', objectFit: 'cover', cursor: 'pointer' }}
-                      onClick={() => window.open(image.url, '_blank')}
-                    />
-                  </div>
-                ))}
-              </div>
-              
-            </div>
-          </div>
-        )}
+                <div className="col-12">
+                  <h5 className="text-primary border-bottom pb-2">Document Images</h5>
+                </div>
 
-        {/* Additional Information */}
-        <div className="row mt-3">
-          <div className="col-12">
-            <h5 className="text-primary border-bottom pb-2">Additional Information</h5>
-            <div className="row">
-              <div className="col-md-6">
-                <p><strong>Booking Created:</strong> {new Date(bookingDetails.createdAt).toLocaleString()}</p>
-                <p><strong>Last Updated:</strong> {new Date(bookingDetails.updatedAt).toLocaleString()}</p>
+                {/* Aadhar Card */}
+                {bookingDetails.userId?.documents?.aadharCard?.url && (
+                  <div className="col-md-6 mb-3">
+                    <div className="card h-100">
+                      <div className="card-header">
+                        <strong>Aadhar Card</strong>
+                        <Badge bg={
+                          bookingDetails.userId.documents.aadharCard.status === 'verified' ? 'success' : 'danger'
+                        } className="ms-2">
+                          {bookingDetails.userId.documents.aadharCard.status}
+                        </Badge>
+                      </div>
+                      <div className="card-body text-center">
+                        <img
+                          src={bookingDetails.userId.documents.aadharCard.url}
+                          alt="Aadhar Card"
+                          className="img-fluid img-thumbnail"
+                          style={{ maxHeight: '250px', cursor: 'pointer' }}
+                          onClick={() => window.open(bookingDetails.userId.documents.aadharCard.url, '_blank')}
+                        />
+                        <p className="text-muted small mt-2">
+                          Uploaded: {new Date(bookingDetails.userId.documents.aadharCard.uploadedAt).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Driving License */}
+                {bookingDetails.userId?.documents?.drivingLicense?.url && (
+                  <div className="col-md-6 mb-3">
+                    <div className="card h-100">
+                      <div className="card-header">
+                        <strong>Driving License</strong>
+                        <Badge bg={
+                          bookingDetails.userId.documents.drivingLicense.status === 'verified' ? 'success' :
+                            bookingDetails.userId.documents.drivingLicense.status === 'approved' ? 'success' : 'warning'
+                        } className="ms-2">
+                          {bookingDetails.userId.documents.drivingLicense.status}
+                        </Badge>
+                      </div>
+                      <div className="card-body text-center">
+                        <img
+                          src={bookingDetails.userId.documents.drivingLicense.url}
+                          alt="Driving License"
+                          className="img-fluid img-thumbnail"
+                          style={{ maxHeight: '250px', cursor: 'pointer' }}
+                          onClick={() => window.open(bookingDetails.userId.documents.drivingLicense.url, '_blank')}
+                        />
+                        <p className="text-muted small mt-2">
+                          Uploaded: {new Date(bookingDetails.userId.documents.drivingLicense.uploadedAt).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="col-md-6">
-                <p><strong>Deposit PDF:</strong> {bookingDetails.depositPDF ? (
-                  <a href={bookingDetails.depositPDF} target="_blank" rel="noopener noreferrer">
-                    <Button variant="link" size="sm">View PDF</Button>
-                  </a>
-                ) : 'Not available'}</p>
-                <p><strong>Final Booking PDF:</strong> {bookingDetails.finalBookingPDF ? (
-                  <a href={bookingDetails.finalBookingPDF} target="_blank" rel="noopener noreferrer">
-                    <Button variant="link" size="sm">View PDF</Button>
-                  </a>
-                ) : 'Not available'}</p>
+
+              {/* Deposit Proof Images */}
+              {bookingDetails.depositeProof && bookingDetails.depositeProof.length > 0 && (
+                <div className="row mt-3">
+                  <div className="col-12">
+                    <h5 className="text-primary border-bottom pb-2">Deposit Proof Images</h5>
+                  </div>
+                  {bookingDetails.depositeProof.map((proof, idx) => (
+                    <div className="col-md-6 mb-3" key={proof._id || idx}>
+                      <div className="card">
+                        <div className="card-header">
+                          <strong>{proof.label === 'depositeFront' ? 'Deposit Front' : 'Deposit Back'}</strong>
+                        </div>
+                        <div className="card-body text-center">
+                          <img
+                            src={proof.url}
+                            alt={proof.label}
+                            className="img-fluid img-thumbnail"
+                            style={{ maxHeight: '200px', cursor: 'pointer' }}
+                            onClick={() => window.open(proof.url, '_blank')}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Car Pickup Images */}
+              {bookingDetails.carImagesBeforePickup && bookingDetails.carImagesBeforePickup.length > 0 && (
+                <div className="row mt-3">
+                  <div className="col-12">
+                    <h5 className="text-primary border-bottom pb-2">Car Pickup Images ({bookingDetails.carImagesBeforePickup.length})</h5>
+                  </div>
+                  <div className="col-12">
+                    <div className="row">
+                      {bookingDetails.carImagesBeforePickup.map((image, idx) => (
+                        <div className="col-md-3 col-6 mb-3" key={image._id || idx}>
+                          <img
+                            src={image.url}
+                            alt={`Car Pickup ${idx + 1}`}
+                            className="img-fluid img-thumbnail"
+                            style={{ height: '150px', width: '100%', objectFit: 'cover', cursor: 'pointer' }}
+                            onClick={() => window.open(image.url, '_blank')}
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                  </div>
+                </div>
+              )}
+
+              {/* Additional Information */}
+              <div className="row mt-3">
+                <div className="col-12">
+                  <h5 className="text-primary border-bottom pb-2">Additional Information</h5>
+                  <div className="row">
+                    <div className="col-md-6">
+                      <p><strong>Booking Created:</strong> {new Date(bookingDetails.createdAt).toLocaleString()}</p>
+                      <p><strong>Last Updated:</strong> {new Date(bookingDetails.updatedAt).toLocaleString()}</p>
+                    </div>
+                    <div className="col-md-6">
+                      <p><strong>Deposit PDF:</strong> {bookingDetails.depositPDF ? (
+                        <a href={bookingDetails.depositPDF} target="_blank" rel="noopener noreferrer">
+                          <Button variant="link" size="sm">View PDF</Button>
+                        </a>
+                      ) : 'Not available'}</p>
+                      <p><strong>Final Booking PDF:</strong> {bookingDetails.finalBookingPDF ? (
+                        <a href={bookingDetails.finalBookingPDF} target="_blank" rel="noopener noreferrer">
+                          <Button variant="link" size="sm">View PDF</Button>
+                        </a>
+                      ) : 'Not available'}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </div>
-      </>
-    )}
-  </Modal.Body>
-  <Modal.Footer>
-    <Button variant="secondary" onClick={() => setShowDetailsModal(false)}>
-      Close
-    </Button>
-  </Modal.Footer>
-</Modal>
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowDetailsModal(false)}>
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };
